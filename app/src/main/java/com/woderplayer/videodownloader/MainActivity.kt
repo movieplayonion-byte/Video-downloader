@@ -8,6 +8,7 @@ import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.RadioGroup
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.chaquo.python.Python
@@ -28,7 +29,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Chaquopy Python Engine ko initialize karna
         if (!Python.isStarted()) {
             Python.start(AndroidPlatform(this))
         }
@@ -54,22 +54,27 @@ class MainActivity : AppCompatActivity() {
         setLoading(true)
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val resolvedUrl = VideoExtractor.resolveStreamUrl(url, isAudio, "720")
+            val result = VideoExtractor.resolveStreamUrl(url, isAudio, "720")
 
             withContext(Dispatchers.Main) {
                 setLoading(false)
-                if (resolvedUrl != null) {
+                if (result != null && !result.startsWith("ERR_")) {
                     if (isDownload) {
-                        DownloadService.startDownload(this@MainActivity, resolvedUrl, "video_${System.currentTimeMillis()}.mp4")
+                        DownloadService.startDownload(this@MainActivity, result, "video_${System.currentTimeMillis()}.${if (isAudio) "mp3" else "mp4"}")
                         Toast.makeText(this@MainActivity, "Download started!", Toast.LENGTH_SHORT).show()
                     } else {
                         val intent = Intent(this@MainActivity, PlayerActivity::class.java).apply {
-                            putExtra("video_url", resolvedUrl)
+                            putExtra("video_url", result)
                         }
                         startActivity(intent)
                     }
                 } else {
-                    Toast.makeText(this@MainActivity, "Unable to resolve stream link", Toast.LENGTH_LONG).show()
+                    val msg = result ?: "VideoExtractor returned null"
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("Diagnostic Output")
+                        .setMessage(msg)
+                        .setPositiveButton("OK", null)
+                        .show()
                 }
             }
         }
