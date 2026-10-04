@@ -3,59 +3,66 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0F172A"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:gravity="center_horizontal">
 
     <EditText
-        android:id="@+id/etVideoUrl"
+        android:id="@+id/url_input"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Paste Video Link here..."
-        android:textColor="#FFFFFF"
-        android:textColorHint="#94A3B8" />
+        android:hint="Enter video URL"
+        android:inputType="textUri"
+        android:layout_marginBottom="16dp" />
+
+    <RadioGroup
+        android:id="@+id/format_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+
+        <RadioButton
+            android:id="@+id/radio_video"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Video (MP4)"
+            android:checked="true" />
+
+        <RadioButton
+            android:id="@+id/radio_mp3"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Audio (MP3)"
+            android:layout_marginStart="16dp" />
+    </RadioGroup>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginTop="12dp">
+        android:layout_marginBottom="16dp">
 
         <Button
-            android:id="@+id/btnPlayOnline"
+            android:id="@+id/play_btn"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Play Online" />
+            android:text="Play"
+            android:layout_marginEnd="8dp" />
 
         <Button
-            android:id="@+id/btnDownload"
+            android:id="@+id/download_btn"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:text="Download" />
+            android:text="Download"
+            android:layout_marginStart="8dp" />
     </LinearLayout>
 
     <ProgressBar
-        android:id="@+id/progressBar"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="8dp"
-        android:layout_marginTop="12dp"
-        android:visibility="gone"
-        android:indeterminate="true" />
-
-    <TextView
-        android:id="@+id/tvStatus"
+        android:id="@+id/progress_bar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="#38BDF8"
-        android:layout_marginTop="6dp" />
+        android:visibility="gone" />
 
-    <ListView
-        android:id="@+id/lvDownloadedVideos"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="12dp" />
 </LinearLayout>
