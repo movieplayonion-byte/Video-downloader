@@ -5,7 +5,6 @@ def get_stream(url, mode="video", quality="720"):
     try:
         url = str(url).strip()
         
-        # Incomplete / Shortened URLs fix karna
         if url.startswith("/live/"):
             url = "https://www.youtube.com" + url
         elif url.startswith(".be/") or url.startswith("tu.be/"):
@@ -13,7 +12,6 @@ def get_stream(url, mode="video", quality="720"):
         elif not url.startswith("http://") and not url.startswith("https://"):
             url = "https://" + url
 
-        # Query tracking remove karna
         url = re.sub(r'(\?|&)si=[^&]+', '', url)
 
         ydl_opts = {
@@ -37,16 +35,18 @@ def get_stream(url, mode="video", quality="720"):
             formats = info.get('formats', [])
 
             if mode == "audio":
-                # Audio stream: best audio stream with valid URL
+                # Sirf pure audio streams (m4a/aac preferred jo har music player me chalta hai)
                 audio_streams = [
                     f for f in formats 
-                    if f.get('url') and (f.get('vcodec') == 'none' or f.get('acodec') != 'none')
+                    if f.get('url') and f.get('vcodec') == 'none' and f.get('acodec') != 'none'
                 ]
-                if audio_streams:
-                    # Return best audio
+                # Pehle m4a dhundho
+                m4a_streams = [f for f in audio_streams if f.get('ext') == 'm4a']
+                if m4a_streams:
+                    return m4a_streams[-1]['url']
+                elif audio_streams:
                     return audio_streams[-1]['url']
             else:
-                # Video stream: progressive mp4 jisme audio + video dono ho
                 prog_mp4 = [
                     f for f in formats 
                     if f.get('url') and f.get('vcodec') != 'none' and f.get('acodec') != 'none' and f.get('ext') == 'mp4'
@@ -57,7 +57,6 @@ def get_stream(url, mode="video", quality="720"):
                 if prog_mp4:
                     return prog_mp4[-1]['url']
 
-            # Fallback agar specified format na mile
             for f in formats:
                 if f.get('url'):
                     return f['url']

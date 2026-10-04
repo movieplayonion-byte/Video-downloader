@@ -34,7 +34,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Request notification permission for Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
@@ -72,8 +71,8 @@ class MainActivity : AppCompatActivity() {
                 setLoading(false)
                 if (result.startsWith("http://") || result.startsWith("https://")) {
                     if (isDownload) {
-                        val ext = if (isAudio) "mp3" else "mp4"
-                        DownloadService.startDownload(this@MainActivity, result, "download_${System.currentTimeMillis()}.$ext")
+                        val fileName = if (isAudio) "audio_${System.currentTimeMillis()}.m4a" else "video_${System.currentTimeMillis()}.mp4"
+                        DownloadService.startDownload(this@MainActivity, result, fileName, isAudio)
                     } else {
                         val intent = Intent(this@MainActivity, PlayerActivity::class.java).apply {
                             putExtra("video_url", result)
