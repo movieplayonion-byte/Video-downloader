@@ -21,6 +21,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import java.util.concurrent.Executors
 
@@ -34,9 +35,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var etVideoUrl: EditText
     private lateinit var btnPlayOnline: Button
     private lateinit var btnDownload: Button
+    private lateinit var btnExtractAudio: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var tvStatus: TextView
     private lateinit var lvDownloadedVideos: ListView
+
+    private var isAudioOnly = false
+    private var selectedQuality = "720"
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -48,7 +53,7 @@ class MainActivity : AppCompatActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (DownloadManager.ACTION_DOWNLOAD_COMPLETE == intent?.action) {
                 progressBar.visibility = View.GONE
-                tvStatus.text = "Download Finished!"
+                tvStatus.text = "Download Finished! ✓"
                 Toast.makeText(this@MainActivity, "Video downloaded successfully!", Toast.LENGTH_SHORT).show()
                 lvDownloadedVideos.postDelayed({ loadDownloadedVideos() }, 1500)
             }
@@ -62,6 +67,7 @@ class MainActivity : AppCompatActivity() {
         etVideoUrl = findViewById(R.id.etVideoUrl)
         btnPlayOnline = findViewById(R.id.btnPlayOnline)
         btnDownload = findViewById(R.id.btnDownload)
+        btnExtractAudio = findViewById(R.id.btnExtractAudio)
         progressBar = findViewById(R.id.progressBar)
         tvStatus = findViewById(R.id.tvStatus)
         lvDownloadedVideos = findViewById(R.id.lvDownloadedVideos)
@@ -78,63 +84,38 @@ class MainActivity : AppCompatActivity() {
             registerReceiver(downloadReceiver, filter)
         }
 
-        // Play Online Button
-        btnPlayOnline.setOnClickListener {
-            val url = etVideoUrl.text.toString().trim()
-            if (url.isNotEmpty() && (url.startsWith("http://") || url.startsWith("https://"))) {
-                progressBar.visibility = View.VISIBLE
-                tvStatus.text = "Resolving video stream..."
-                
-                executor.execute {
-                    val streamUrl = VideoExtractor.resolveStreamUrl(url, false, "720")
-                    runOnUiThread {
-                        progressBar.visibility = View.GONE
-                        tvStatus.text = ""
-                        
-                        if (!streamUrl.isNullOrEmpty()) {
-                            val intent = Intent(this@MainActivity, PlayerActivity::class.java).apply {
-                                putExtra("EXTRA_VIDEO_URL", streamUrl)
-                            }
-                            startActivity(intent)
-                        } else {
-                            Toast.makeText(this@MainActivity, "Could not stream video. Trying direct open...", Toast.LENGTH_SHORT).show()
-                            val intent = Intent(this@MainActivity, PlayerActivity::class.java).apply {
-                                putExtra("EXTRA_VIDEO_URL", url)
-                            }
-                            startActivity(intent)
-                        }
-                    }
-                }
-            } else {
-                Toast.makeText(this, "Please enter a valid video link", Toast.LENGTH_SHORT).show()
+        if (intent?.action == Intent.ACTION_SEND) {
+            val sharedUrl = intent.getStringExtra(Intent.EXTRA_TEXT)
+            if (!sharedUrl.isNullOrEmpty()) {
+                etVideoUrl.setText(sharedUrl)
+                showDownloadOptionsDialog(sharedUrl)
             }
         }
 
-        // Download Button
+        btnPlayOnline.setOnClickListener {
+            playVideo()
+        }
+
         btnDownload.setOnClickListener {
             val url = etVideoUrl.text.toString().trim()
-            if (url.isNotEmpty() && (url.startsWith("http://") || url.startsWith("https://"))) {
-                progressBar.visibility = View.VISIBLE
-                tvStatus.text = "Extracting real video..."
-
-                executor.execute {
-                    val streamUrl = VideoExtractor.resolveStreamUrl(url, false, "1080")
-                    runOnUiThread {
-                        if (!streamUrl.isNullOrEmpty()) {
-                            startVideoDownload(streamUrl)
-                        } else {
-                            progressBar.visibility = View.GONE
-                            tvStatus.text = ""
-                            Toast.makeText(this@MainActivity, "Extraction failed. Check URL.", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
+            if (isValidUrl(url)) {
+                showDownloadOptionsDialog(url)
             } else {
-                Toast.makeText(this, "Please enter a valid link", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "कृपया सही link enter करें", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // Play Downloaded Video
+        btnExtractAudio.setOnClickListener {
+            val url = etVideoUrl.text.toString().trim()
+            if (isValidUrl(url)) {
+                isAudioOnly = true
+                selectedQuality = "128"
+                startExtraction(url, true)
+            } else {
+                Toast.makeText(this, "कृपया सही link enter करें", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         lvDownloadedVideos.setOnItemClickListener { _, _, position, _ ->
             val videoUri = videoUris[position]
             val intent = Intent(this, PlayerActivity::class.java).apply {
@@ -145,16 +126,111 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun showDownloadOptionsDialog(url: String) {
+        val qualities = arrayOf("480p", "720p", "1080p", "Maximum")
+        var selectedQualityOption = 1
+
+        val builder = AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog)
+        builder.setTitle("Download Options")
+        builder.setMessage("Format और Quality select करो:")
+
+        builder.setSingleChoiceItems(qualities, selectedQualityOption) { _, which ->
+            selectedQualityOption = which
+            selectedQuality = when (which) {
+                0 -> "480"
+                1 -> "720"
+                2 -> "1080"
+                else -> "1080"
+            }
+        }
+
+        builder.setPositiveButton("MP4 Download") { _, _ ->
+            isAudioOnly = false
+            startExtraction(url, false)
+        }
+
+        builder.setNeutralButton("MP3 Extract") { _, _ ->
+            isAudioOnly = true
+            startExtraction(url, true)
+        }
+
+        builder.setNegativeButton("Cancel") { dialog, _ ->
+            dialog.dismiss()
+        }
+
+        builder.show()
+    }
+
+    private fun startExtraction(url: String, isAudio: Boolean) {
+        progressBar.visibility = View.VISIBLE
+        tvStatus.text = if (isAudio) "Audio extract हो रहा है..." else "Video download हो रहा है..."
+
+        executor.execute {
+            val quality = if (isAudio) "128" else selectedQuality
+            val streamUrl = VideoExtractor.resolveStreamUrl(url, isAudio, quality)
+            runOnUiThread {
+                if (!streamUrl.isNullOrEmpty()) {
+                    if (isAudio) {
+                        startAudioDownload(streamUrl)
+                    } else {
+                        startVideoDownload(streamUrl)
+                    }
+                } else {
+                    progressBar.visibility = View.GONE
+                    tvStatus.text = ""
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Link काम नहीं आया। दूसरा try करो।",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+
+    private fun playVideo() {
+        val url = etVideoUrl.text.toString().trim()
+        if (isValidUrl(url)) {
+            progressBar.visibility = View.VISIBLE
+            tvStatus.text = "Video stream resolve हो रहा है..."
+
+            executor.execute {
+                val streamUrl = VideoExtractor.resolveStreamUrl(url, false, "720")
+                runOnUiThread {
+                    progressBar.visibility = View.GONE
+                    tvStatus.text = ""
+
+                    if (!streamUrl.isNullOrEmpty()) {
+                        val intent = Intent(this@MainActivity, PlayerActivity::class.java).apply {
+                            putExtra("EXTRA_VIDEO_URL", streamUrl)
+                        }
+                        startActivity(intent)
+                    } else {
+                        val intent = Intent(this@MainActivity, PlayerActivity::class.java).apply {
+                            putExtra("EXTRA_VIDEO_URL", url)
+                        }
+                        startActivity(intent)
+                    }
+                }
+            }
+        } else {
+            Toast.makeText(this, "कृपया सही link enter करें", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun startVideoDownload(directStreamUrl: String) {
         try {
-            tvStatus.text = "Downloading real video..."
+            tvStatus.text = "Video download background में चल रहा है..."
 
             val fileName = "Video_${System.currentTimeMillis()}.mp4"
             val request = DownloadManager.Request(Uri.parse(directStreamUrl)).apply {
-                setTitle("Downloading Video")
+                setTitle("Video Downloading")
                 setDescription(fileName)
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                setDestinationInExternalPublicDir(Environment.DIRECTORY_MOVIES, "DownloadedVideos/$fileName")
+                setDestinationInExternalPublicDir(
+                    Environment.DIRECTORY_MOVIES,
+                    "DownloadedVideos/$fileName"
+                )
                 setAllowedOverMetered(true)
                 setAllowedOverRoaming(true)
             }
@@ -162,11 +238,44 @@ class MainActivity : AppCompatActivity() {
             val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             manager.enqueue(request)
             etVideoUrl.text?.clear()
+            progressBar.visibility = View.VISIBLE
         } catch (e: Exception) {
             progressBar.visibility = View.GONE
             tvStatus.text = ""
             Toast.makeText(this, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun startAudioDownload(directStreamUrl: String) {
+        try {
+            tvStatus.text = "Audio download background में चल रहा है..."
+
+            val fileName = "Audio_${System.currentTimeMillis()}.mp3"
+            val request = DownloadManager.Request(Uri.parse(directStreamUrl)).apply {
+                setTitle("Audio Downloading")
+                setDescription(fileName)
+                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                setDestinationInExternalPublicDir(
+                    Environment.DIRECTORY_MUSIC,
+                    "DownloadedAudio/$fileName"
+                )
+                setAllowedOverMetered(true)
+                setAllowedOverRoaming(true)
+            }
+
+            val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            manager.enqueue(request)
+            etVideoUrl.text?.clear()
+            progressBar.visibility = View.VISIBLE
+        } catch (e: Exception) {
+            progressBar.visibility = View.GONE
+            tvStatus.text = ""
+            Toast.makeText(this, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun isValidUrl(url: String): Boolean {
+        return url.isNotEmpty() && (url.startsWith("http://") || url.startsWith("https://"))
     }
 
     private fun loadDownloadedVideos() {

@@ -4,44 +4,59 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#0F172A"
-    android:padding="16dp">
+    android:padding="12dp">
 
     <EditText
         android:id="@+id/etVideoUrl"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="48dp"
         android:hint="Paste Video Link here..."
         android:textColor="#FFFFFF"
-        android:textColorHint="#94A3B8" />
+        android:textColorHint="#94A3B8"
+        android:textSize="14sp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginTop="12dp">
+        android:layout_marginTop="10dp"
+        android:gravity="center_vertical">
 
         <Button
             android:id="@+id/btnPlayOnline"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="42dp"
             android:layout_weight="1"
-            android:text="Play Online" />
+            android:text="Play"
+            android:textSize="13sp" />
 
         <Button
             android:id="@+id/btnDownload"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="42dp"
             android:layout_weight="1"
             android:layout_marginStart="8dp"
-            android:text="Download" />
+            android:text="Download"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/btnExtractAudio"
+            android:layout_width="0dp"
+            android:layout_height="42dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="MP3"
+            android:textSize="13sp" />
     </LinearLayout>
 
     <ProgressBar
         android:id="@+id/progressBar"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
-        android:layout_height="8dp"
-        android:layout_marginTop="12dp"
+        android:layout_height="6dp"
+        android:layout_marginTop="10dp"
         android:visibility="gone"
         android:indeterminate="true" />
 
@@ -50,6 +65,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textColor="#38BDF8"
+        android:textSize="12sp"
         android:layout_marginTop="6dp" />
 
     <ListView
