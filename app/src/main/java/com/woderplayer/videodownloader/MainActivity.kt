@@ -17,9 +17,8 @@ import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
 import com.woderplayer.videodownloader.databinding.ActivityMainBinding
-import kotlinx.coroutines.launch
+import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
@@ -27,6 +26,7 @@ class MainActivity : AppCompatActivity() {
     private val videoNames = ArrayList<String>()
     private val videoUris = ArrayList<Uri>()
     private lateinit var adapter: ArrayAdapter<String>
+    private val executor = Executors.newSingleThreadExecutor()
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -68,18 +68,20 @@ class MainActivity : AppCompatActivity() {
                 binding.progressBar.visibility = View.VISIBLE
                 binding.tvStatus.text = "Resolving video stream..."
                 
-                lifecycleScope.launch {
+                executor.execute {
                     val streamUrl = VideoExtractor.resolveStreamUrl(url, false, "720")
-                    binding.progressBar.visibility = View.GONE
-                    binding.tvStatus.text = ""
-                    
-                    if (!streamUrl.isNullOrEmpty()) {
-                        val intent = Intent(this@MainActivity, PlayerActivity::class.java).apply {
-                            putExtra("EXTRA_VIDEO_URL", streamUrl)
+                    runOnUiThread {
+                        binding.progressBar.visibility = View.GONE
+                        binding.tvStatus.text = ""
+                        
+                        if (!streamUrl.isNullOrEmpty()) {
+                            val intent = Intent(this@MainActivity, PlayerActivity::class.java).apply {
+                                putExtra("EXTRA_VIDEO_URL", streamUrl)
+                            }
+                            startActivity(intent)
+                        } else {
+                            Toast.makeText(this@MainActivity, "Could not stream this video.", Toast.LENGTH_SHORT).show()
                         }
-                        startActivity(intent)
-                    } else {
-                        Toast.makeText(this@MainActivity, "Could not stream this video.", Toast.LENGTH_SHORT).show()
                     }
                 }
             } else {
@@ -94,14 +96,16 @@ class MainActivity : AppCompatActivity() {
                 binding.progressBar.visibility = View.VISIBLE
                 binding.tvStatus.text = "Extracting video stream..."
                 
-                lifecycleScope.launch {
+                executor.execute {
                     val streamUrl = VideoExtractor.resolveStreamUrl(url, false, "1080")
-                    if (!streamUrl.isNullOrEmpty()) {
-                        startVideoDownload(streamUrl)
-                    } else {
-                        binding.progressBar.visibility = View.GONE
-                        binding.tvStatus.text = ""
-                        Toast.makeText(this@MainActivity, "Could not extract video. Check URL.", Toast.LENGTH_SHORT).show()
+                    runOnUiThread {
+                        if (!streamUrl.isNullOrEmpty()) {
+                            startVideoDownload(streamUrl)
+                        } else {
+                            binding.progressBar.visibility = View.GONE
+                            binding.tvStatus.text = ""
+                            Toast.makeText(this@MainActivity, "Could not extract video. Check URL.", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             } else {
@@ -199,6 +203,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        executor.shutdown()
         try {
             unregisterReceiver(downloadReceiver)
         } catch (_: Exception) {}

@@ -6,18 +6,17 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
-import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
 import com.woderplayer.videodownloader.databinding.DialogShareDownloadBinding
-import kotlinx.coroutines.launch
+import java.util.concurrent.Executors
 import java.util.regex.Pattern
 
 class ShareDialogActivity : AppCompatActivity() {
 
     private lateinit var binding: DialogShareDownloadBinding
     private var extractedUrl: String? = null
+    private val executor = Executors.newSingleThreadExecutor()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,15 +43,17 @@ class ShareDialogActivity : AppCompatActivity() {
                 binding.btnStartDownload.text = "Fetching Stream..."
                 Toast.makeText(this, "Extracting real video stream...", Toast.LENGTH_SHORT).show()
 
-                lifecycleScope.launch {
+                executor.execute {
                     val streamUrl = VideoExtractor.resolveStreamUrl(url, isAudio, quality)
-                    if (!streamUrl.isNullOrEmpty()) {
-                        startBackgroundDownload(streamUrl, isAudio)
-                        finish()
-                    } else {
-                        Toast.makeText(this@ShareDialogActivity, "Failed to extract video stream. Try another link.", Toast.LENGTH_LONG).show()
-                        binding.btnStartDownload.isEnabled = true
-                        binding.btnStartDownload.text = "Download Now"
+                    runOnUiThread {
+                        if (!streamUrl.isNullOrEmpty()) {
+                            startBackgroundDownload(streamUrl, isAudio)
+                            finish()
+                        } else {
+                            Toast.makeText(this@ShareDialogActivity, "Failed to extract video stream. Try another link.", Toast.LENGTH_LONG).show()
+                            binding.btnStartDownload.isEnabled = true
+                            binding.btnStartDownload.text = "Download Now"
+                        }
                     }
                 }
             } else {
@@ -103,5 +104,10 @@ class ShareDialogActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Toast.makeText(this, "Download error: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        executor.shutdown()
     }
 }
