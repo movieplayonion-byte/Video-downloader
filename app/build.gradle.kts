@@ -44,12 +44,15 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 
-    // Video Player
+    // Lifecycle & Coroutines
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // Video Player (Media3)
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-ui:1.4.1")
     implementation("androidx.media3:media3-common:1.4.1")
 
-    // Network & Stream Extraction
+    // HTTP Client
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }
