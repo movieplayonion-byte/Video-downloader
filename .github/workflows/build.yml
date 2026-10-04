@@ -1,8 +1,8 @@
-name: Build Video Downloader
+name: Build Android App
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -20,23 +20,16 @@ jobs:
           java-version: '17'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
 
-      - name: Create Keystore & Build
+      - name: Build with Gradle
         run: |
-          keytool -genkey -v -keystore app/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=VideoDownloader,O=Android,C=US"
-          gradle assembleDebug bundleDebug -x test -x lint
+          gradle assembleRelease --no-configuration-cache --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: VideoDownloader-APK
-          path: "**/build/outputs/apk/**/*.apk"
-
-      - name: Upload AAB
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: VideoDownloader-AAB
-          path: "**/build/outputs/bundle/**/*.aab"
+          name: app-release
+          path: app/build/outputs/apk/release/*.apk
