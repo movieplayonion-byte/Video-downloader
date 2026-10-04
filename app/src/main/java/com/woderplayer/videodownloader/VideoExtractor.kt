@@ -1,23 +1,42 @@
 package com.woderplayer.videodownloader
 
+import org.schabi.newpipe.extractor.NewPipe
+import org.schabi.newpipe.extractor.ServiceList
+import org.schabi.newpipe.extractor.downloader.Downloader
+import org.schabi.newpipe.extractor.downloader.Request
+import org.schabi.newpipe.extractor.downloader.Response
+import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeStreamExtractor
+import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import okhttp3.OkHttpClient
-import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
-import java.util.regex.Pattern
 
 object VideoExtractor {
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
+    private val okClient = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    private val instances = listOf(
-        "https://inv.tux.pizza",
-        "https://invidious.nerdvpn.de",
-        "https://yewtu.be",
-        "https://invidious.jing.rocks"
-    )
+    init {
+        // Initialize NewPipe Extractor with Custom OkHttp Downloader
+        NewPipe.init(object : Downloader() {
+            override fun execute(request: Request): Response {
+                val okReqBuilder = okhttp3.Request.Builder().url(request.url())
+                request.headers().forEach { (k, v) ->
+                    v.forEach { okReqBuilder.addHeader(k, it) }
+                }
+                
+                if (request.dataToSend() != null) {
+                    okReqBuilder.post(request.dataToSend()!!.toRequestBody())
+                }
+
+                val response = okClient.newCall(okReqBuilder.build()).execute()
+                val body = response.body?.string() ?: ""
+                return Response(response.code, response.message, response.headers.toMultimap(), body, response.request.url.toString())
+            }
+        })
+    }
 
     fun resolveStreamUrl(webUrl: String, isAudioOnly: Boolean, quality: String): String? {
         val lower = webUrl.lowercase()
@@ -25,54 +44,35 @@ object VideoExtractor {
             return webUrl
         }
 
-        val videoId = extractYouTubeId(webUrl) ?: return null
+        return try {
+            val service = ServiceList.YouTube
+            val extractor = service.getStreamExtractor(webUrl) as YoutubeStreamExtractor
+            extractor.fetchPage()
 
-        for (host in instances) {
-            try {
-                val apiUrl = "$host/api/v1/videos/$videoId"
-                val request = Request.Builder()
-                    .url(apiUrl)
-                    .addHeader("User-Agent", "Mozilla/5.0")
-                    .build()
-
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) return@use
-                    val body = response.body?.string() ?: return@use
-
-                    if (isAudioOnly) {
-                        val audioRegex = Pattern.compile("\"url\"\\s*:\\s*\"([^\"]+)\"[^}]*\"container\"\\s*:\\s*\"m4a\"")
-                        val m = audioRegex.matcher(body)
-                        if (m.find()) return cleanUrl(m.group(1), host)
-                    }
-
-                    // Extract progressive MP4 streams
-                    val streamRegex = Pattern.compile("\"url\"\\s*:\\s*\"([^\"]+)\"[^}]*\"qualityLabel\"\\s*:\\s*\"(\\d+p)\"")
-                    val m = streamRegex.matcher(body)
-                    var bestUrl: String? = null
-                    while (m.find()) {
-                        val streamUrl = m.group(1)
-                        val q = m.group(2)
-                        if (q.contains(quality)) {
-                            return cleanUrl(streamUrl, host)
-                        }
-                        if (bestUrl == null) bestUrl = streamUrl
-                    }
-                    if (bestUrl != null) return cleanUrl(bestUrl, host)
+            if (isAudioOnly) {
+                val audioStreams = extractor.audioStreams
+                if (audioStreams.isNotEmpty()) {
+                    return audioStreams.first().content
                 }
-            } catch (_: Exception) {}
+            }
+
+            // Progressive video streams (Audio + Video combined MP4)
+            val videoStreams = extractor.videoStreams
+            for (stream in videoStreams) {
+                if (stream.resolution.contains(quality)) {
+                    return stream.content
+                }
+            }
+
+            // Fallback to highest available direct stream
+            if (videoStreams.isNotEmpty()) {
+                videoStreams.first().content
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
-        return null
-    }
-
-    private fun cleanUrl(raw: String?, host: String): String? {
-        if (raw == null) return null
-        val decoded = raw.replace("\\/", "/").replace("\\u0026", "&")
-        return if (decoded.startsWith("http")) decoded else "$host$decoded"
-    }
-
-    private fun extractYouTubeId(url: String): String? {
-        val p = Pattern.compile("(?:youtu\\.be\\/|youtube\\.com\\/(?:watch\\?v=|embed\\/|v\\/|shorts\\/))([a-zA-Z0-9_-]{11})")
-        val m = p.matcher(url)
-        return if (m.find()) m.group(1) else null
     }
 }
