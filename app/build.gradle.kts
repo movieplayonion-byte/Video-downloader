@@ -1,7 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.chaquo.python") version "15.0.1"
+    id("com.chaquo.python")
 }
 
 android {
@@ -12,8 +12,8 @@ android {
         applicationId = "com.woderplayer.videodownloader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 8
-        versionName = "2.1.0"
+        versionCode = 9
+        versionName = "2.1.1"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
