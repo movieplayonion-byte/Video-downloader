@@ -6,41 +6,48 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
+import android.widget.Button
+import android.widget.RadioButton
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.woderplayer.videodownloader.databinding.DialogShareDownloadBinding
 import java.util.concurrent.Executors
 import java.util.regex.Pattern
 
 class ShareDialogActivity : AppCompatActivity() {
 
-    private lateinit var binding: DialogShareDownloadBinding
     private var extractedUrl: String? = null
     private val executor = Executors.newSingleThreadExecutor()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = DialogShareDownloadBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContentView(R.layout.dialog_share_download)
 
-        handleShareIntent(intent)
+        val tvSharedLink = findViewById<TextView>(R.id.tvSharedLink)
+        val btnCancel = findViewById<Button>(R.id.btnCancel)
+        val btnStartDownload = findViewById<Button>(R.id.btnStartDownload)
+        val rb1080p = findViewById<RadioButton>(R.id.rb1080p)
+        val rb720p = findViewById<RadioButton>(R.id.rb720p)
+        val rbMp3 = findViewById<RadioButton>(R.id.rbMp3)
 
-        binding.btnCancel.setOnClickListener {
+        handleShareIntent(intent, tvSharedLink)
+
+        btnCancel.setOnClickListener {
             finish()
         }
 
-        binding.btnStartDownload.setOnClickListener {
+        btnStartDownload.setOnClickListener {
             val url = extractedUrl
             if (!url.isNullOrEmpty()) {
-                val isAudio = binding.rbMp3.isChecked
+                val isAudio = rbMp3.isChecked
                 val quality = when {
-                    binding.rb1080p.isChecked -> "1080"
-                    binding.rb720p.isChecked -> "720"
+                    rb1080p.isChecked -> "1080"
+                    rb720p.isChecked -> "720"
                     else -> "480"
                 }
 
-                binding.btnStartDownload.isEnabled = false
-                binding.btnStartDownload.text = "Fetching Stream..."
+                btnStartDownload.isEnabled = false
+                btnStartDownload.text = "Fetching Stream..."
                 Toast.makeText(this, "Extracting real video stream...", Toast.LENGTH_SHORT).show()
 
                 executor.execute {
@@ -51,8 +58,8 @@ class ShareDialogActivity : AppCompatActivity() {
                             finish()
                         } else {
                             Toast.makeText(this@ShareDialogActivity, "Failed to extract video stream. Try another link.", Toast.LENGTH_LONG).show()
-                            binding.btnStartDownload.isEnabled = true
-                            binding.btnStartDownload.text = "Download Now"
+                            btnStartDownload.isEnabled = true
+                            btnStartDownload.text = "Download Now"
                         }
                     }
                 }
@@ -62,13 +69,13 @@ class ShareDialogActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleShareIntent(intent: Intent) {
+    private fun handleShareIntent(intent: Intent, tvSharedLink: TextView) {
         if (Intent.ACTION_SEND == intent.action && "text/plain" == intent.type) {
             val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
             val url = extractUrlFromString(sharedText)
             if (url != null) {
                 extractedUrl = url
-                binding.tvSharedLink.text = url
+                tvSharedLink.text = url
             } else {
                 Toast.makeText(this, "No valid link found", Toast.LENGTH_SHORT).show()
                 finish()

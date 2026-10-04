@@ -4,8 +4,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
 import java.util.concurrent.TimeUnit
+import java.util.regex.Pattern
 
 object VideoExtractor {
 
@@ -24,17 +24,13 @@ object VideoExtractor {
 
         return try {
             val apiUrl = "https://api.cobalt.tools/api/json"
-            val jsonPayload = JSONObject().apply {
-                put("url", webUrl)
-                if (isAudioOnly) {
-                    put("downloadMode", "audio")
-                    put("audioFormat", "mp3")
-                } else {
-                    put("videoQuality", quality)
-                }
+            val jsonPayload = if (isAudioOnly) {
+                "{\"url\":\"$webUrl\",\"downloadMode\":\"audio\",\"audioFormat\":\"mp3\"}"
+            } else {
+                "{\"url\":\"$webUrl\",\"videoQuality\":\"$quality\"}"
             }
 
-            val body = jsonPayload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+            val body = jsonPayload.toRequestBody("application/json; charset=utf-8".toMediaType())
             val request = Request.Builder()
                 .url(apiUrl)
                 .addHeader("Accept", "application/json")
@@ -45,15 +41,20 @@ object VideoExtractor {
 
             client.newCall(request).execute().use { response ->
                 val resString = response.body?.string() ?: return null
-                val json = JSONObject(resString)
                 
-                if (json.has("url")) {
-                    json.getString("url")
-                } else if (json.has("audio")) {
-                    json.getString("audio")
-                } else {
-                    null
+                // Match url pattern safely without external json library dependencies
+                val pattern = Pattern.compile("\"url\"\\s*:\\s*\"([^\"]+)\"")
+                val matcher = pattern.matcher(resString)
+                if (matcher.find()) {
+                    return matcher.group(1)?.replace("\\/", "/")
                 }
+                
+                val audioPattern = Pattern.compile("\"audio\"\\s*:\\s*\"([^\"]+)\"")
+                val audioMatcher = audioPattern.matcher(resString)
+                if (audioMatcher.find()) {
+                    return audioMatcher.group(1)?.replace("\\/", "/")
+                }
+                null
             }
         } catch (e: Exception) {
             e.printStackTrace()

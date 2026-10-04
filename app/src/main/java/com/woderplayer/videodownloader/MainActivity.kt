@@ -14,19 +14,29 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.view.View
 import android.widget.ArrayAdapter
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ListView
+import android.widget.ProgressBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import com.woderplayer.videodownloader.databinding.ActivityMainBinding
 import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityMainBinding
     private val videoNames = ArrayList<String>()
     private val videoUris = ArrayList<Uri>()
     private lateinit var adapter: ArrayAdapter<String>
     private val executor = Executors.newSingleThreadExecutor()
+
+    private lateinit var etVideoUrl: EditText
+    private lateinit var btnPlayOnline: Button
+    private lateinit var btnDownload: Button
+    private lateinit var progressBar: ProgressBar
+    private lateinit var tvStatus: TextView
+    private lateinit var lvDownloadedVideos: ListView
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -37,21 +47,27 @@ class MainActivity : AppCompatActivity() {
     private val downloadReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (DownloadManager.ACTION_DOWNLOAD_COMPLETE == intent?.action) {
-                binding.progressBar.visibility = View.GONE
-                binding.tvStatus.text = "Download Finished!"
+                progressBar.visibility = View.GONE
+                tvStatus.text = "Download Finished!"
                 Toast.makeText(this@MainActivity, "Video downloaded successfully!", Toast.LENGTH_SHORT).show()
-                binding.root.postDelayed({ loadDownloadedVideos() }, 1500)
+                lvDownloadedVideos.postDelayed({ loadDownloadedVideos() }, 1500)
             }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContentView(R.layout.activity_main)
+
+        etVideoUrl = findViewById(R.id.etVideoUrl)
+        btnPlayOnline = findViewById(R.id.btnPlayOnline)
+        btnDownload = findViewById(R.id.btnDownload)
+        progressBar = findViewById(R.id.progressBar)
+        tvStatus = findViewById(R.id.tvStatus)
+        lvDownloadedVideos = findViewById(R.id.lvDownloadedVideos)
 
         adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, videoNames)
-        binding.lvDownloadedVideos.adapter = adapter
+        lvDownloadedVideos.adapter = adapter
 
         requestAppPermissions()
 
@@ -62,17 +78,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Play Online
-        binding.btnPlayOnline.setOnClickListener {
-            val url = binding.etVideoUrl.text.toString().trim()
+        btnPlayOnline.setOnClickListener {
+            val url = etVideoUrl.text.toString().trim()
             if (url.isNotEmpty() && (url.startsWith("http://") || url.startsWith("https://"))) {
-                binding.progressBar.visibility = View.VISIBLE
-                binding.tvStatus.text = "Resolving video stream..."
+                progressBar.visibility = View.VISIBLE
+                tvStatus.text = "Resolving video stream..."
                 
                 executor.execute {
                     val streamUrl = VideoExtractor.resolveStreamUrl(url, false, "720")
                     runOnUiThread {
-                        binding.progressBar.visibility = View.GONE
-                        binding.tvStatus.text = ""
+                        progressBar.visibility = View.GONE
+                        tvStatus.text = ""
                         
                         if (!streamUrl.isNullOrEmpty()) {
                             val intent = Intent(this@MainActivity, PlayerActivity::class.java).apply {
@@ -90,11 +106,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Direct Download
-        binding.btnDownload.setOnClickListener {
-            val url = binding.etVideoUrl.text.toString().trim()
+        btnDownload.setOnClickListener {
+            val url = etVideoUrl.text.toString().trim()
             if (url.isNotEmpty() && (url.startsWith("http://") || url.startsWith("https://"))) {
-                binding.progressBar.visibility = View.VISIBLE
-                binding.tvStatus.text = "Extracting video stream..."
+                progressBar.visibility = View.VISIBLE
+                tvStatus.text = "Extracting video stream..."
                 
                 executor.execute {
                     val streamUrl = VideoExtractor.resolveStreamUrl(url, false, "1080")
@@ -102,8 +118,8 @@ class MainActivity : AppCompatActivity() {
                         if (!streamUrl.isNullOrEmpty()) {
                             startVideoDownload(streamUrl)
                         } else {
-                            binding.progressBar.visibility = View.GONE
-                            binding.tvStatus.text = ""
+                            progressBar.visibility = View.GONE
+                            tvStatus.text = ""
                             Toast.makeText(this@MainActivity, "Could not extract video. Check URL.", Toast.LENGTH_SHORT).show()
                         }
                     }
@@ -114,7 +130,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Play Downloaded Video
-        binding.lvDownloadedVideos.setOnItemClickListener { _, _, position, _ ->
+        lvDownloadedVideos.setOnItemClickListener { _, _, position, _ ->
             val videoUri = videoUris[position]
             val intent = Intent(this, PlayerActivity::class.java).apply {
                 data = videoUri
@@ -126,7 +142,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun startVideoDownload(directStreamUrl: String) {
         try {
-            binding.tvStatus.text = "Downloading real video..."
+            tvStatus.text = "Downloading real video..."
 
             val fileName = "Video_${System.currentTimeMillis()}.mp4"
             val request = DownloadManager.Request(Uri.parse(directStreamUrl)).apply {
@@ -140,10 +156,10 @@ class MainActivity : AppCompatActivity() {
 
             val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             manager.enqueue(request)
-            binding.etVideoUrl.text?.clear()
+            etVideoUrl.text?.clear()
         } catch (e: Exception) {
-            binding.progressBar.visibility = View.GONE
-            binding.tvStatus.text = ""
+            progressBar.visibility = View.GONE
+            tvStatus.text = ""
             Toast.makeText(this, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
