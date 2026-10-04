@@ -17,7 +17,9 @@ import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.woderplayer.videodownloader.databinding.ActivityMainBinding
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -59,28 +61,71 @@ class MainActivity : AppCompatActivity() {
             registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
         }
 
-        binding.btnDownload.setOnClickListener {
+        // Play Online
+        binding.btnPlayOnline.setOnClickListener {
             val url = binding.etVideoUrl.text.toString().trim()
             if (url.isNotEmpty() && (url.startsWith("http://") || url.startsWith("https://"))) {
-                startVideoDownload(url)
+                binding.progressBar.visibility = View.VISIBLE
+                binding.tvStatus.text = "Resolving video stream..."
+                
+                lifecycleScope.launch {
+                    val streamUrl = VideoExtractor.resolveStreamUrl(url, false, "720")
+                    binding.progressBar.visibility = View.GONE
+                    binding.tvStatus.text = ""
+                    
+                    if (!streamUrl.isNullOrEmpty()) {
+                        val intent = Intent(this@MainActivity, PlayerActivity::class.java).apply {
+                            putExtra("EXTRA_VIDEO_URL", streamUrl)
+                        }
+                        startActivity(intent)
+                    } else {
+                        Toast.makeText(this@MainActivity, "Could not stream this video.", Toast.LENGTH_SHORT).show()
+                    }
+                }
             } else {
-                Toast.makeText(this, "Please enter a valid video link (http/https)", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Please enter a valid video link", Toast.LENGTH_SHORT).show()
             }
         }
 
+        // Direct Download
+        binding.btnDownload.setOnClickListener {
+            val url = binding.etVideoUrl.text.toString().trim()
+            if (url.isNotEmpty() && (url.startsWith("http://") || url.startsWith("https://"))) {
+                binding.progressBar.visibility = View.VISIBLE
+                binding.tvStatus.text = "Extracting video stream..."
+                
+                lifecycleScope.launch {
+                    val streamUrl = VideoExtractor.resolveStreamUrl(url, false, "1080")
+                    if (!streamUrl.isNullOrEmpty()) {
+                        startVideoDownload(streamUrl)
+                    } else {
+                        binding.progressBar.visibility = View.GONE
+                        binding.tvStatus.text = ""
+                        Toast.makeText(this@MainActivity, "Could not extract video. Check URL.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } else {
+                Toast.makeText(this, "Please enter a valid link", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // Play Downloaded Video
         binding.lvDownloadedVideos.setOnItemClickListener { _, _, position, _ ->
             val videoUri = videoUris[position]
-            playVideo(videoUri)
+            val intent = Intent(this, PlayerActivity::class.java).apply {
+                data = videoUri
+                putExtra("EXTRA_VIDEO_URL", videoUri.toString())
+            }
+            startActivity(intent)
         }
     }
 
-    private fun startVideoDownload(url: String) {
+    private fun startVideoDownload(directStreamUrl: String) {
         try {
-            binding.progressBar.visibility = View.VISIBLE
-            binding.tvStatus.text = "Downloading video..."
+            binding.tvStatus.text = "Downloading real video..."
 
             val fileName = "Video_${System.currentTimeMillis()}.mp4"
-            val request = DownloadManager.Request(Uri.parse(url)).apply {
+            val request = DownloadManager.Request(Uri.parse(directStreamUrl)).apply {
                 setTitle("Downloading Video")
                 setDescription(fileName)
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
@@ -96,18 +141,6 @@ class MainActivity : AppCompatActivity() {
             binding.progressBar.visibility = View.GONE
             binding.tvStatus.text = ""
             Toast.makeText(this, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun playVideo(uri: Uri) {
-        try {
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "video/*")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            startActivity(intent)
-        } catch (e: Exception) {
-            Toast.makeText(this, "No supported video player found", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -149,6 +182,7 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS)
             permissions.add(Manifest.permission.READ_MEDIA_VIDEO)
+            permissions.add(Manifest.permission.READ_MEDIA_AUDIO)
         } else {
             permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
