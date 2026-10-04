@@ -2,51 +2,46 @@ package com.woderplayer.videodownloader
 
 import android.net.Uri
 import android.os.Bundle
-import android.view.View
-import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 
 class PlayerActivity : AppCompatActivity() {
 
-    private var exoPlayer: ExoPlayer? = null
+    private var player: ExoPlayer? = null
+    private lateinit var playerView: PlayerView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        window.decorView.systemUiVisibility = (
-            View.SYSTEM_UI_FLAG_FULLSCREEN
-            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-        )
-
         setContentView(R.layout.activity_player)
-        val playerView = findViewById<PlayerView>(R.id.playerView)
 
-        val videoUrl = intent.getStringExtra("EXTRA_VIDEO_URL") ?: intent.dataString
-        if (!videoUrl.isNullOrEmpty()) {
-            exoPlayer = ExoPlayer.Builder(this).build().also { player ->
-                playerView.player = player
-                val mediaItem = MediaItem.fromUri(Uri.parse(videoUrl))
-                player.setMediaItem(mediaItem)
-                player.prepare()
-                player.playWhenReady = true
-            }
-        } else {
-            finish()
-        }
-    }
+        playerView = findViewById(R.id.player_view)
+        val streamUrl = intent.getStringExtra("video_url") ?: return
 
-    override fun onStop() {
-        super.onStop()
-        exoPlayer?.pause()
+        // YouTube CDN user-agent header pass karna taaki stream error na aaye
+        val dataSourceFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent("com.google.android.youtube/19.09.37 (Linux; U; Android 14) gzip")
+
+        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
+
+        player = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build()
+
+        playerView.player = player
+
+        val mediaItem = MediaItem.fromUri(Uri.parse(streamUrl))
+        player?.setMediaItem(mediaItem)
+        player?.prepare()
+        player?.playWhenReady = true
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        exoPlayer?.release()
-        exoPlayer = null
+        player?.release()
+        player = null
     }
 }
