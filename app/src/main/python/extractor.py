@@ -4,7 +4,8 @@ def get_stream(url, mode="video", quality="720"):
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
-        'extract_flat': False
+        'extract_flat': False,
+        'skip_download': True
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
