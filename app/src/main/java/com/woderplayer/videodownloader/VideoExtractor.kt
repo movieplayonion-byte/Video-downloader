@@ -10,20 +10,18 @@ import java.util.regex.Pattern
 object VideoExtractor {
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(25, TimeUnit.SECONDS)
+        .readTimeout(35, TimeUnit.SECONDS)
         .build()
 
     fun resolveStreamUrl(webUrl: String, isAudioOnly: Boolean, quality: String): String? {
-        if (webUrl.endsWith(".mp4", true) || 
-            webUrl.endsWith(".mp3", true) || 
-            webUrl.endsWith(".mkv", true) || 
-            webUrl.endsWith(".m3u8", true)) {
+        val lower = webUrl.lowercase()
+        if (lower.endsWith(".mp4") || lower.endsWith(".mp3") || lower.endsWith(".mkv") || lower.endsWith(".m3u8")) {
             return webUrl
         }
 
         return try {
-            val apiUrl = "https://api.cobalt.tools/api/json"
+            val endpoint = "https://api.cobalt.tools/"
             val jsonPayload = if (isAudioOnly) {
                 "{\"url\":\"$webUrl\",\"downloadMode\":\"audio\",\"audioFormat\":\"mp3\"}"
             } else {
@@ -32,17 +30,17 @@ object VideoExtractor {
 
             val body = jsonPayload.toRequestBody("application/json; charset=utf-8".toMediaType())
             val request = Request.Builder()
-                .url(apiUrl)
+                .url(endpoint)
                 .addHeader("Accept", "application/json")
                 .addHeader("Content-Type", "application/json")
-                .addHeader("User-Agent", "Mozilla/5.0")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
                 .post(body)
                 .build()
 
             client.newCall(request).execute().use { response ->
                 val resString = response.body?.string() ?: return null
                 
-                // Match url pattern safely without external json library dependencies
+                // Parse direct media URL from JSON response
                 val pattern = Pattern.compile("\"url\"\\s*:\\s*\"([^\"]+)\"")
                 val matcher = pattern.matcher(resString)
                 if (matcher.find()) {

@@ -11,8 +11,8 @@ android {
         applicationId = "com.woderplayer.videodownloader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.2.2"
+        versionCode = 6
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -41,11 +41,11 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 
-    // Video Player
+    // In-App Media Player
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-ui:1.4.1")
     implementation("androidx.media3:media3-common:1.4.1")
 
-    // Network HTTP Client
+    // HTTP Engine
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }

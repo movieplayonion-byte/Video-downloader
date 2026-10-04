@@ -71,13 +71,14 @@ class MainActivity : AppCompatActivity() {
 
         requestAppPermissions()
 
+        val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), RECEIVER_EXPORTED)
+            registerReceiver(downloadReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
-            registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+            registerReceiver(downloadReceiver, filter)
         }
 
-        // Play Online
+        // Play Online Button
         btnPlayOnline.setOnClickListener {
             val url = etVideoUrl.text.toString().trim()
             if (url.isNotEmpty() && (url.startsWith("http://") || url.startsWith("https://"))) {
@@ -96,7 +97,11 @@ class MainActivity : AppCompatActivity() {
                             }
                             startActivity(intent)
                         } else {
-                            Toast.makeText(this@MainActivity, "Could not stream this video.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@MainActivity, "Could not stream video. Trying direct open...", Toast.LENGTH_SHORT).show()
+                            val intent = Intent(this@MainActivity, PlayerActivity::class.java).apply {
+                                putExtra("EXTRA_VIDEO_URL", url)
+                            }
+                            startActivity(intent)
                         }
                     }
                 }
@@ -105,13 +110,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Direct Download
+        // Download Button
         btnDownload.setOnClickListener {
             val url = etVideoUrl.text.toString().trim()
             if (url.isNotEmpty() && (url.startsWith("http://") || url.startsWith("https://"))) {
                 progressBar.visibility = View.VISIBLE
-                tvStatus.text = "Extracting video stream..."
-                
+                tvStatus.text = "Extracting real video..."
+
                 executor.execute {
                     val streamUrl = VideoExtractor.resolveStreamUrl(url, false, "1080")
                     runOnUiThread {
@@ -120,7 +125,7 @@ class MainActivity : AppCompatActivity() {
                         } else {
                             progressBar.visibility = View.GONE
                             tvStatus.text = ""
-                            Toast.makeText(this@MainActivity, "Could not extract video. Check URL.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@MainActivity, "Extraction failed. Check URL.", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }

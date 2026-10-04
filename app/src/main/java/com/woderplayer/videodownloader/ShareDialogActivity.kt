@@ -47,17 +47,17 @@ class ShareDialogActivity : AppCompatActivity() {
                 }
 
                 btnStartDownload.isEnabled = false
-                btnStartDownload.text = "Fetching Stream..."
-                Toast.makeText(this, "Extracting real video stream...", Toast.LENGTH_SHORT).show()
+                btnStartDownload.text = "Extracting..."
+                Toast.makeText(this, "Extracting video stream...", Toast.LENGTH_SHORT).show()
 
                 executor.execute {
-                    val streamUrl = VideoExtractor.resolveStreamUrl(url, isAudio, quality)
+                    val directStreamUrl = VideoExtractor.resolveStreamUrl(url, isAudio, quality)
                     runOnUiThread {
-                        if (!streamUrl.isNullOrEmpty()) {
-                            startBackgroundDownload(streamUrl, isAudio)
+                        if (!directStreamUrl.isNullOrEmpty()) {
+                            startBackgroundDownload(directStreamUrl, isAudio)
                             finish()
                         } else {
-                            Toast.makeText(this@ShareDialogActivity, "Failed to extract video stream. Try another link.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this@ShareDialogActivity, "Could not extract video stream. Check connection or link.", Toast.LENGTH_LONG).show()
                             btnStartDownload.isEnabled = true
                             btnStartDownload.text = "Download Now"
                         }
@@ -77,7 +77,7 @@ class ShareDialogActivity : AppCompatActivity() {
                 extractedUrl = url
                 tvSharedLink.text = url
             } else {
-                Toast.makeText(this, "No valid link found", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "No video URL found", Toast.LENGTH_SHORT).show()
                 finish()
             }
         } else {
@@ -107,7 +107,7 @@ class ShareDialogActivity : AppCompatActivity() {
 
             val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             manager.enqueue(request)
-            Toast.makeText(this, "Real Video downloading in background!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Video downloading in background...", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Download error: ${e.message}", Toast.LENGTH_SHORT).show()
         }
