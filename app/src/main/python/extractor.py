@@ -1,14 +1,25 @@
 import yt_dlp
+import re
 
 def get_stream(url, mode="video", quality="720"):
     url = url.strip()
     
+    # Auto-fix incomplete URL prefixes
+    if url.startswith("/live/"):
+        url = "https://www.youtube.com" + url
+    elif url.startswith(".be/"):
+        url = "https://youtu" + url
+    elif not url.startswith("http://") and not url.startswith("https://"):
+        url = "https://" + url
+
+    # Remove tracking ?si= parameter
+    url = re.sub(r'(\?|&)si=[^&]+', '', url)
+
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
         'extract_flat': False,
         'skip_download': True,
-        # Android/iOS clients bina JS engine ke progressive mp4 stream dete hain
         'extractor_args': {
             'youtube': {
                 'player_client': ['android', 'ios'],
@@ -26,12 +37,10 @@ def get_stream(url, mode="video", quality="720"):
             formats = info.get('formats', [])
 
             if mode == "audio":
-                # Audio stream filter
                 audios = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none' and f.get('url')]
                 if audios:
                     return audios[-1]['url']
             else:
-                # Progressive MP4 (jisme video + audio dono ho)
                 mp4s = [f for f in formats if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and f.get('ext') == 'mp4' and f.get('url')]
                 for f in mp4s:
                     if quality in str(f.get('height', '')):
@@ -39,11 +48,10 @@ def get_stream(url, mode="video", quality="720"):
                 if mp4s:
                     return mp4s[-1]['url']
 
-            # Agar progressive na mile toh direct single stream format
-            valid_streams = [f for f in formats if f.get('url')]
-            if valid_streams:
-                return valid_streams[-1]['url']
+            valid = [f for f in formats if f.get('url')]
+            if valid:
+                return valid[-1]['url']
 
-            return "ERR_NO_FORMAT: No playable media stream found"
+            return "ERR_NO_STREAM: Stream format not available"
     except Exception as e:
         return f"ERR_PY: {str(e)}"

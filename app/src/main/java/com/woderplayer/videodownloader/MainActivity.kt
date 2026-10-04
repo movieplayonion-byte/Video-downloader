@@ -1,6 +1,9 @@
 package com.woderplayer.videodownloader
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -10,6 +13,8 @@ import android.widget.RadioGroup
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
@@ -28,6 +33,13 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // Request notification permission for Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+            }
+        }
 
         if (!Python.isStarted()) {
             Python.start(AndroidPlatform(this))
@@ -58,10 +70,10 @@ class MainActivity : AppCompatActivity() {
 
             withContext(Dispatchers.Main) {
                 setLoading(false)
-                if (result != null && !result.startsWith("ERR_")) {
+                if (result.startsWith("http://") || result.startsWith("https://")) {
                     if (isDownload) {
-                        DownloadService.startDownload(this@MainActivity, result, "video_${System.currentTimeMillis()}.${if (isAudio) "mp3" else "mp4"}")
-                        Toast.makeText(this@MainActivity, "Download started!", Toast.LENGTH_SHORT).show()
+                        val ext = if (isAudio) "mp3" else "mp4"
+                        DownloadService.startDownload(this@MainActivity, result, "download_${System.currentTimeMillis()}.$ext")
                     } else {
                         val intent = Intent(this@MainActivity, PlayerActivity::class.java).apply {
                             putExtra("video_url", result)
@@ -69,10 +81,9 @@ class MainActivity : AppCompatActivity() {
                         startActivity(intent)
                     }
                 } else {
-                    val msg = result ?: "VideoExtractor returned null"
                     AlertDialog.Builder(this@MainActivity)
                         .setTitle("Diagnostic Output")
-                        .setMessage(msg)
+                        .setMessage(result)
                         .setPositiveButton("OK", null)
                         .show()
                 }
