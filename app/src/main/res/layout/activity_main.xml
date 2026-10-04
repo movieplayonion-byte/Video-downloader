@@ -1,56 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#0F172A"
     android:padding="16dp">
 
-    <TextView
-        android:layout_width="wrap_content"
+    <EditText
+        android:id="@+id/etVideoUrl"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Video Downloader"
+        android:hint="Paste Video Link here..."
         android:textColor="#FFFFFF"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="16dp" />
+        android:textColorHint="#94A3B8" />
 
-    <com.google.android.material.textfield.TextInputLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Paste Video Link (MP4 URL)..."
-        app:boxStrokeColor="#38BDF8"
-        app:hintTextColor="#38BDF8"
-        android:textColorHint="#94A3B8"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        android:orientation="horizontal"
+        android:layout_marginTop="12dp">
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etVideoUrl"
-            android:layout_width="match_parent"
+        <Button
+            android:id="@+id/btnPlayOnline"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:textColor="#FFFFFF"
-            android:inputType="textUri" />
-    </com.google.android.material.textfield.TextInputLayout>
+            android:layout_weight="1"
+            android:text="Play Online" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnDownload"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:layout_marginTop="12dp"
-        android:text="Download Video"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        app:cornerRadius="8dp"
-        android:backgroundTint="#0284C7" />
+        <Button
+            android:id="@+id/btnDownload"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="Download" />
+    </LinearLayout>
 
     <ProgressBar
         android:id="@+id/progressBar"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
         android:layout_height="8dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="12dp"
         android:visibility="gone"
         android:indeterminate="true" />
 
@@ -58,27 +49,13 @@
         android:id="@+id/tvStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text=""
         android:textColor="#38BDF8"
-        android:textSize="14sp"
         android:layout_marginTop="6dp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Downloaded Videos (Tap to Play)"
-        android:textColor="#E2E8F0"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:layout_marginTop="20dp"
-        android:layout_marginBottom="8dp" />
 
     <ListView
         android:id="@+id/lvDownloadedVideos"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:divider="#1E293B"
-        android:dividerHeight="1dp" />
-
+        android:layout_marginTop="12dp" />
 </LinearLayout>
