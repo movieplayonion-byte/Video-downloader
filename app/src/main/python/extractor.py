@@ -4,7 +4,6 @@ import re
 def get_stream(url, mode="video", quality="720"):
     try:
         url = str(url).strip()
-        
         if url.startswith("/live/"):
             url = "https://www.youtube.com" + url
         elif url.startswith(".be/") or url.startswith("tu.be/"):
@@ -26,7 +25,7 @@ def get_stream(url, mode="video", quality="720"):
                 }
             },
             'http_headers': {
-                'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 14) gzip'
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
             }
         }
 
@@ -35,17 +34,21 @@ def get_stream(url, mode="video", quality="720"):
             formats = info.get('formats', [])
 
             if mode == "audio":
-                # Sirf pure audio streams (m4a/aac preferred jo har music player me chalta hai)
-                audio_streams = [
+                # Audio ke liye sabse reliable single audio stream jiska URL ho
+                audios = [
                     f for f in formats 
-                    if f.get('url') and f.get('vcodec') == 'none' and f.get('acodec') != 'none'
+                    if f.get('url') and f.get('acodec') != 'none' and (f.get('vcodec') == 'none' or f.get('vcodec') is None)
                 ]
-                # Pehle m4a dhundho
-                m4a_streams = [f for f in audio_streams if f.get('ext') == 'm4a']
-                if m4a_streams:
-                    return m4a_streams[-1]['url']
-                elif audio_streams:
-                    return audio_streams[-1]['url']
+                # Best bitrate audio
+                if audios:
+                    # Sort by audio bitrate
+                    audios.sort(key=lambda x: x.get('abr') or 0)
+                    return audios[-1]['url']
+                
+                # Agar standalone audio na mile to lowest video-audio stream
+                for f in formats:
+                    if f.get('url') and f.get('acodec') != 'none':
+                        return f['url']
             else:
                 prog_mp4 = [
                     f for f in formats 

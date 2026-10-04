@@ -21,15 +21,15 @@ class DownloadService {
                     setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
                     setAllowedOverMetered(true)
                     setAllowedOverRoaming(true)
-                    addRequestHeader("User-Agent", "com.google.android.youtube/19.09.37 (Linux; U; Android 14) gzip")
+                    addRequestHeader("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
                 }
 
                 val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                 manager.enqueue(request)
-                Toast.makeText(context, "Download started! Check notification.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Download started! Full file will be saved in Downloads.", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 e.printStackTrace()
-                Toast.makeText(context, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Download error: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
