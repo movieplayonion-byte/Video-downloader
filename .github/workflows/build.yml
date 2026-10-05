@@ -37,31 +37,18 @@ jobs:
           mkdir -p release_assets
           find app/build/outputs/apk -name "*.apk" -exec cp {} release_assets/VideoDownloader.apk \;
           find app/build/outputs/bundle -name "*.aab" -exec cp {} release_assets/VideoDownloader.aab \;
-          ls -la release_assets/
 
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+      - name: Publish Fresh Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: app-release-apk
-          path: release_assets/VideoDownloader.apk
-          if-no-files-found: error
-
-      - name: Upload AAB Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release-bundle
-          path: release_assets/VideoDownloader.aab
-          if-no-files-found: error
-
-      - name: Force Publish to GitHub Release via CLI
+          tag_name: "v${{ github.run_number }}"
+          name: "Video Downloader Release v${{ github.run_number }}"
+          body: "Stable release."
+          draft: false
+          prerelease: false
+          make_latest: true
+          files: |
+            release_assets/VideoDownloader.apk
+            release_assets/VideoDownloader.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release delete latest --yes || true
-          git tag -d latest || true
-          git push origin :refs/tags/latest || true
-          gh release create latest \
-            release_assets/VideoDownloader.apk \
-            release_assets/VideoDownloader.aab \
-            --title "Video Downloader Latest Release" \
-            --notes "Direct public download links for APK and AAB Bundle."
