@@ -53,15 +53,17 @@ jobs:
           path: release_assets/VideoDownloader.aab
           if-no-files-found: error
 
-      - name: Force Publish to GitHub Release via CLI
+      - name: Publish Fresh Release (Guaranteed Overwrite)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ github.run_number }}"
+          name: "Video Downloader Release v${{ github.run_number }}"
+          body: "Automated production build with updated APK & AAB."
+          draft: false
+          prerelease: false
+          make_latest: true
+          files: |
+            release_assets/VideoDownloader.apk
+            release_assets/VideoDownloader.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release delete latest --yes || true
-          git tag -d latest || true
-          git push origin :refs/tags/latest || true
-          gh release create latest \
-            release_assets/VideoDownloader.apk \
-            release_assets/VideoDownloader.aab \
-            --title "Video Downloader Latest Release" \
-            --notes "Direct public download links for APK and AAB Bundle."
