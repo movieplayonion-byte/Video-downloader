@@ -36,10 +36,10 @@ object UpdateManager {
         onUpdateFound: (ReleaseInfo) -> Unit,
         onNoUpdate: () -> Unit
     ) {
-        val currentCode = BuildConfig.VERSION_CODE.toLong()
+        val currentCode: Long = BuildConfig.VERSION_CODE.toLong()
         val info = fetchRawVersionInfo()
         withContext(Dispatchers.Main) {
-            if (info != null && info.versionCode > currentCode) {
+            if (info != null && (info.versionCode.compareTo(currentCode) > 0)) {
                 onUpdateFound(info)
             } else {
                 onNoUpdate()
@@ -47,7 +47,6 @@ object UpdateManager {
         }
     }
 
-    // Overload for backward compatibility with old activity calls
     suspend fun checkUpdateStatus(
         context: Context,
         unusedCode: Long,
