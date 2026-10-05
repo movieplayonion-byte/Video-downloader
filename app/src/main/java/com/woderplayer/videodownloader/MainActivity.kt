@@ -29,7 +29,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var downloadBtn: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var formatGroup: RadioGroup
-    private val CURRENT_VERSION_CODE = 28L
+    private val CURRENT_VERSION_CODE = 29L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

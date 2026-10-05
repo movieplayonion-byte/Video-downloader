@@ -4,51 +4,43 @@ import urllib.request
 import json
 import ssl
 
-def fetch_instagram_desktop(url):
+def get_instagram_stream(url):
     try:
-        # URL se sabhi query tracking parameters saaf karna (?utm_source etc.)
-        clean_url = re.sub(r'\?.*$', '', url).rstrip('/') + '/'
-        
+        # Shortcode nikaalna: /reel/CODE/ ya /p/CODE/
+        match = re.search(r'instagram\.com/(?:reel|p|tv)/([^/?&#]+)', url)
+        if not match:
+            return None
+        shortcode = match.group(1)
+
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
 
-        # Desktop Chrome Browser Emulation Headers
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-            'Sec-Ch-Ua-Mobile': '?0',
-            'Sec-Ch-Ua-Platform': '"Windows"',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1',
-            'Upgrade-Insecure-Requests': '1'
-        }
-
-        req = urllib.request.Request(clean_url, headers=headers)
+        embed_url = f"https://www.instagram.com/p/{shortcode}/embed/captioned/"
+        req = urllib.request.Request(
+            embed_url,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Sec-Fetch-Mode': 'navigate'
+            }
+        )
         html = urllib.request.urlopen(req, context=ctx, timeout=12).read().decode('utf-8', errors='ignore')
 
-        # 1. Desktop HTML OpenGraph Video Tag
-        og_match = re.search(r'<meta\s+property=["\']og:video(?::secure_url)?["\']\s+content=["\']([^"\']+)["\']', html)
-        if og_match:
-            return og_match.group(1).replace('&amp;', '&')
-
-        # 2. Desktop JSON-LD / Video URL match
-        v_match = re.search(r'["\']video_url["\']\s*:\s*["\']([^"\']+)["\']', html)
+        # 1. Embed page JSON / video_url search
+        v_match = re.search(r'\\?"video_url\\?":\\?"([^"]+)\\?"', html)
         if v_match:
-            raw = v_match.group(1).encode().decode('unicode-escape')
-            return raw.replace('&amp;', '&').replace('\\/', '/')
+            raw_url = v_match.group(1).replace(r'\/', '/').replace('&amp;', '&')
+            raw_url = raw_url.encode().decode('unicode-escape')
+            return raw_url
 
-        # 3. CDN MP4 direct link pattern
-        cdn_match = re.search(r'(https://[^"\'\s]+\.cdninstagram\.com/[^"\'\s]+\.mp4[^"\'\s]*)', html)
-        if cdn_match:
-            return cdn_match.group(1).replace('&amp;', '&').replace('\\/', '/')
+        # 2. Direct video src tag in embed
+        src_match = re.search(r'<video[^>]+src=["\']([^"\']+)["\']', html)
+        if src_match:
+            return src_match.group(1).replace('&amp;', '&')
 
-    except Exception as e:
-        return f"ERR_INSTA_DESKTOP: {str(e)}"
+    except Exception:
+        pass
     return None
 
 def get_stream(url, mode="video", quality="720"):
@@ -63,15 +55,13 @@ def get_stream(url, mode="video", quality="720"):
 
         url = re.sub(r'(\?|&)si=[^&]+', '', url)
 
-        # Agar Instagram link hai to Desktop browser mode se direct fetch karo
+        # 1. Agar Instagram link hai to embed resolver try karo
         if "instagram.com" in url:
-            stream_url = fetch_instagram_desktop(url)
-            if stream_url and stream_url.startswith("http"):
-                return stream_url
-            elif stream_url and stream_url.startswith("ERR_"):
-                return stream_url
+            insta_stream = get_instagram_stream(url)
+            if insta_stream and insta_stream.startswith("http"):
+                return insta_stream
 
-        # YouTube aur baaki sab platforms ke liye purana 100% working yt-dlp flow
+        # 2. YouTube aur normal flows (100% UNTOUCHED yt-dlp)
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,

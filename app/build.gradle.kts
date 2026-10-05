@@ -23,8 +23,8 @@ android {
         applicationId = "com.woderplayer.videodownloader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 28
-        versionName = "3.0.1"
+        versionCode = 29
+        versionName = "3.0.2"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")

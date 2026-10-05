@@ -1,6 +1,6 @@
 {
-  "versionCode": 28,
-  "versionName": "3.0.1",
+  "versionCode": 29,
+  "versionName": "3.0.2",
   "apkUrl": "https://github.com/movieplayonion-byte/Video-downloader/releases/latest/download/VideoDownloader.apk",
-  "changeLog": "Update v3.0.1: Added Desktop browser headers for Instagram extraction."
+  "changeLog": "Update v3.0.2: Fixed Instagram extraction using embed stream resolver."
 }

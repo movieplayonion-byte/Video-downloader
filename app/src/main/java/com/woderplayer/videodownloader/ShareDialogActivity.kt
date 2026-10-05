@@ -21,7 +21,7 @@ class ShareDialogActivity : AppCompatActivity() {
     private lateinit var downloadBtn: Button
     private lateinit var audioRadioBtn: RadioButton
     private var sharedUrl: String = ""
-    private val currentVersionCode: Long = 28L
+    private val currentVersionCode: Long = 29L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
