@@ -35,9 +35,7 @@ jobs:
       - name: Prepare Release Assets
         run: |
           mkdir -p release_assets
-          # Find any generated apk and copy as VideoDownloader.apk
           find app/build/outputs/apk -name "*.apk" -exec cp {} release_assets/VideoDownloader.apk \;
-          # Find any generated aab and copy as VideoDownloader.aab
           find app/build/outputs/bundle -name "*.aab" -exec cp {} release_assets/VideoDownloader.aab \;
           ls -la release_assets/
 
@@ -55,16 +53,15 @@ jobs:
           path: release_assets/VideoDownloader.aab
           if-no-files-found: error
 
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: latest
-          name: "Video Downloader Latest Release"
-          body: "Direct public download links for APK and AAB Bundle."
-          draft: false
-          prerelease: false
-          files: |
-            release_assets/VideoDownloader.apk
-            release_assets/VideoDownloader.aab
+      - name: Force Publish to GitHub Release via CLI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete latest --yes || true
+          git tag -d latest || true
+          git push origin :refs/tags/latest || true
+          gh release create latest \
+            release_assets/VideoDownloader.apk \
+            release_assets/VideoDownloader.aab \
+            --title "Video Downloader Latest Release" \
+            --notes "Direct public download links for APK and AAB Bundle."
