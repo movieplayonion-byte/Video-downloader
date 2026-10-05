@@ -1,5 +1,6 @@
 package com.woderplayer.videodownloader
 
+import android.app.Activity
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -22,10 +23,8 @@ import java.net.URL
 
 object UpdateManager {
 
-    // GitHub Raw URL (No Rate Limit, Super Fast)
-    private const val RAW_VERSION_URL = "https://raw.githubusercontent.com/movieplayonion-byte/Video-downloader/main/version.json"
+    private const val BASE_URL = "https://raw.githubusercontent.com/movieplayonion-byte/Video-downloader/main/version.json"
 
-    // Check updates and execute callback: onMandatoryUpdate (agar update zaroori ho), onProceed (agar app latest ho)
     suspend fun checkUpdateStatus(
         context: Context,
         currentVersionCode: Long,
@@ -44,7 +43,7 @@ object UpdateManager {
 
     private suspend fun fetchRawVersionInfo(): ReleaseInfo? = withContext(Dispatchers.IO) {
         try {
-            val url = URL(RAW_VERSION_URL)
+            val url = URL("$BASE_URL?t=" + System.currentTimeMillis())
             val connection = (url.openConnection() as HttpURLConnection).apply {
                 connectTimeout = 4000
                 readTimeout = 4000
@@ -60,7 +59,7 @@ object UpdateManager {
                 val vCode = json.getLong("versionCode")
                 val vName = json.getString("versionName")
                 val apkUrl = json.getString("apkUrl")
-                val log = json.optString("changeLog", "Please update to continue using the app.")
+                val log = json.optString("changeLog", "Mandatory update is required.")
 
                 return@withContext ReleaseInfo(vName, vCode, log, apkUrl)
             }
@@ -70,18 +69,25 @@ object UpdateManager {
         null
     }
 
-    fun showMandatoryDialog(context: Context, info: ReleaseInfo, onCancelAction: () -> Unit = {}) {
-        AlertDialog.Builder(context)
+    fun showMandatoryDialog(activity: Activity, info: ReleaseInfo) {
+        val dialog = AlertDialog.Builder(activity)
             .setTitle("Update Required (v${info.versionName})")
             .setMessage(info.changeLog + "\n\nYou must update to continue using Video Downloader.")
             .setCancelable(false)
             .setPositiveButton("Update Now") { _, _ ->
-                downloadAndInstall(context, info.apkUrl, "app_update_v${info.versionName}.apk")
+                downloadAndInstall(activity, info.apkUrl, "app_update_v${info.versionName}.apk")
             }
             .setNegativeButton("Exit") { _, _ ->
-                onCancelAction()
+                activity.finishAffinity()
             }
-            .show()
+            .create()
+
+        // Back button dabane par bhi dialog dismiss na ho
+        dialog.setCanceledOnTouchOutside(false)
+        dialog.setOnCancelListener {
+            activity.finishAffinity()
+        }
+        dialog.show()
     }
 
     private fun downloadAndInstall(context: Context, downloadUrl: String, fileName: String) {
