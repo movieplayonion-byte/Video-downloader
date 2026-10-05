@@ -20,7 +20,7 @@ class ShareDialogActivity : AppCompatActivity() {
     private lateinit var audioRadioBtn: RadioButton
     private var sharedUrl: String = ""
 
-    private val currentVersionCode: Long
+    private val currentVersionCode: Long = 24L
         get() = try {
             val pInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
