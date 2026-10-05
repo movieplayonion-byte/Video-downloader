@@ -1,6 +1,6 @@
 {
-  "versionCode": 19,
-  "versionName": "2.9.2",
+  "versionCode": 20,
+  "versionName": "2.9.3",
   "apkUrl": "https://github.com/movieplayonion-byte/Video-downloader/releases/latest/download/VideoDownloader.apk",
-  "changeLog": "Update v2.9.2: Fixed package installer permissions & ultra-stable background updater."
+  "changeLog": "Update v2.9.3: Smooth update installation and auto-dismiss verified."
 }
