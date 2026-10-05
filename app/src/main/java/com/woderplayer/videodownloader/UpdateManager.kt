@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
@@ -64,7 +65,7 @@ object UpdateManager {
                 val vCode = json.getLong("versionCode")
                 val vName = json.getString("versionName")
                 val apkUrl = json.getString("apkUrl")
-                val log = json.optString("changeLog", "Mandatory security and engine update.")
+                val log = json.optString("changeLog", "Mandatory update.")
 
                 return@withContext ReleaseInfo(vName, vCode, log, apkUrl)
             }
@@ -102,37 +103,37 @@ object UpdateManager {
         actionBtn.setOnClickListener {
             val apk = downloadedApk
             if (apk != null && apk.exists()) {
-                checkPermissionAndInstall(activity, apk)
+                handleInstallRequest(activity, apk)
             } else {
                 actionBtn.isEnabled = false
                 exitBtn.isEnabled = false
                 pBar.visibility = View.VISIBLE
                 statusTxt.visibility = View.VISIBLE
-                statusTxt.text = "Connecting to server..."
+                statusTxt.text = "Connecting..."
 
                 CoroutineScope(Dispatchers.IO).launch {
                     downloadApkDirect(activity, info.apkUrl, "Update_v${info.versionName}.apk",
-                        onProgress = { percent ->
+                        onProgress = { percent, downloadedMB, totalMB ->
                             CoroutineScope(Dispatchers.Main).launch {
                                 pBar.isIndeterminate = false
                                 pBar.progress = percent
-                                statusTxt.text = "Downloading: $percent%"
+                                statusTxt.text = "Downloading: $percent% ($downloadedMB MB / $totalMB MB)"
                             }
                         },
                         onSuccess = { file ->
                             downloadedApk = file
                             CoroutineScope(Dispatchers.Main).launch {
                                 pBar.visibility = View.GONE
-                                statusTxt.text = "Download Complete!"
+                                statusTxt.text = "Download Complete! Ready to install."
                                 actionBtn.isEnabled = true
                                 actionBtn.text = "Install Update Now"
-                                checkPermissionAndInstall(activity, file)
+                                handleInstallRequest(activity, file)
                             }
                         },
                         onError = { errMsg ->
                             CoroutineScope(Dispatchers.Main).launch {
                                 pBar.visibility = View.GONE
-                                statusTxt.text = "Download Failed: $errMsg"
+                                statusTxt.text = "Error: $errMsg"
                                 actionBtn.isEnabled = true
                                 exitBtn.isEnabled = true
                                 actionBtn.text = "Retry Download"
@@ -146,40 +147,47 @@ object UpdateManager {
         dialog.show()
     }
 
-    private fun checkPermissionAndInstall(activity: Activity, apkFile: File) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (!activity.packageManager.canRequestPackageInstalls()) {
-                Toast.makeText(activity, "Please allow 'Install unknown apps' permission to update", Toast.LENGTH_LONG).show()
-                val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                    data = Uri.parse("package:${activity.packageName}")
+    private fun handleInstallRequest(activity: Activity, apkFile: File) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (!activity.packageManager.canRequestPackageInstalls()) {
+                    Toast.makeText(activity, "Allow 'Install unknown apps' permission to continue", Toast.LENGTH_LONG).show()
+                    val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                        data = Uri.parse("package:${activity.packageName}")
+                    }
+                    activity.startActivity(intent)
+                    return
                 }
-                activity.startActivity(intent)
-                return
             }
+            installApkSafely(activity, apkFile)
+        } catch (e: Exception) {
+            Toast.makeText(activity, "Install error: ${e.message}", Toast.LENGTH_LONG).show()
         }
-        triggerSystemInstall(activity, apkFile)
     }
 
-    private fun triggerSystemInstall(context: Context, apkFile: File) {
-        val apkUri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            apkFile
-        )
+    private fun installApkSafely(context: Context, apkFile: File) {
+        try {
+            val apkUri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                apkFile
+            )
 
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(apkUri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(apkUri, "application/vnd.android.package-archive")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Failed to launch installer: ${e.message}", Toast.LENGTH_LONG).show()
         }
-        context.startActivity(intent)
     }
 
     private fun downloadApkDirect(
         context: Context,
         urlString: String,
         fileName: String,
-        onProgress: (Int) -> Unit,
+        onProgress: (Int, String, String) -> Unit,
         onSuccess: (File) -> Unit,
         onError: (String) -> Unit
     ) {
@@ -192,40 +200,44 @@ object UpdateManager {
                 val u = URL(currentUrl)
                 connection = u.openConnection() as HttpURLConnection
                 connection.instanceFollowRedirects = false
-                connection.connectTimeout = 10000
-                connection.readTimeout = 15000
-                connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+                connection.connectTimeout = 12000
+                connection.readTimeout = 20000
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android)")
                 connection.connect()
 
                 val status = connection.responseCode
                 if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM || status == 307 || status == 308) {
                     currentUrl = connection.getHeaderField("Location")
                     redirects++
-                    if (redirects > 5) throw Exception("Too many redirects")
+                    if (redirects > 6) throw Exception("Too many redirects")
                     continue
                 }
                 break
             }
 
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                throw Exception("Server returned code ${connection.responseCode}")
+                throw Exception("HTTP ${connection.responseCode}")
             }
 
             val fileLength = connection.contentLength
-            val file = File(context.getExternalFilesDir(null), fileName)
+            val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir
+            val file = File(dir, fileName)
             if (file.exists()) file.delete()
 
             val input = connection.inputStream
             val output = FileOutputStream(file)
-            val buffer = ByteArray(4096)
+            val buffer = ByteArray(8192)
             var total: Long = 0
             var count: Int
 
+            val totalMB = String.format("%.1f", fileLength.toFloat() / (1024 * 1024))
+
             while (input.read(buffer).also { count = it } != -1) {
                 total += count.toLong()
+                val currentMB = String.format("%.1f", total.toFloat() / (1024 * 1024))
                 if (fileLength > 0) {
                     val percent = (total * 100 / fileLength).toInt()
-                    onProgress(percent)
+                    onProgress(percent, currentMB, totalMB)
                 }
                 output.write(buffer, 0, count)
             }
@@ -235,7 +247,7 @@ object UpdateManager {
             input.close()
             onSuccess(file)
         } catch (e: Exception) {
-            onError(e.message ?: "Unknown error")
+            onError(e.message ?: "Download interrupted")
         }
     }
 
