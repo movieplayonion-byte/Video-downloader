@@ -9,6 +9,8 @@ import android.widget.RadioButton
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.chaquo.python.Python
+import com.chaquo.python.android.AndroidPlatform
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -19,18 +21,24 @@ class ShareDialogActivity : AppCompatActivity() {
     private lateinit var downloadBtn: Button
     private lateinit var audioRadioBtn: RadioButton
     private var sharedUrl: String = ""
-    private val currentVersionCode: Long = 25L
+    private val currentVersionCode: Long = 26L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_share_dialog)
+
+        if (!Python.isStarted()) {
+            Python.start(AndroidPlatform(this))
+        }
 
         progressBar = findViewById(R.id.share_progress)
         downloadBtn = findViewById(R.id.share_download_btn)
         audioRadioBtn = findViewById(R.id.share_audio_radio)
 
         if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
-            sharedUrl = intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
+            val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
+            val regex = "(https?://[\\S]+)".toRegex()
+            sharedUrl = regex.find(text)?.value ?: text.trim()
         }
 
         progressBar.visibility = View.VISIBLE
