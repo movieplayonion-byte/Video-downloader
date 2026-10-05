@@ -100,11 +100,10 @@ object UpdateManager {
         var downloadedApk: File? = null
 
         actionBtn.setOnClickListener {
-            if (downloadedApk != null && downloadedApk!!.exists()) {
-                // Agar download ho chuka hai, toh sirf Install trigger hoga
-                checkPermissionAndInstall(activity, downloadedApk!)
+            val apk = downloadedApk
+            if (apk != null && apk.exists()) {
+                checkPermissionAndInstall(activity, apk)
             } else {
-                // Download start karein in-app with visible live status
                 actionBtn.isEnabled = false
                 exitBtn.isEnabled = false
                 pBar.visibility = View.VISIBLE
@@ -189,7 +188,6 @@ object UpdateManager {
             var connection: HttpURLConnection
             var redirects = 0
 
-            // Follow 302/301 redirects (GitHub releases redirect to AWS S3)
             while (true) {
                 val u = URL(currentUrl)
                 connection = u.openConnection() as HttpURLConnection
