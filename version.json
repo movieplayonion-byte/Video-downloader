@@ -1,6 +1,6 @@
 {
-  "versionCode": 24,
-  "versionName": "2.9.7",
+  "versionCode": 25,
+  "versionName": "2.9.8",
   "apkUrl": "https://github.com/movieplayonion-byte/Video-downloader/releases/latest/download/VideoDownloader.apk",
-  "changeLog": "Update v2.9.7: Fixed download trigger in ShareDialog."
+  "changeLog": "Update v2.9.8: Direct stream resolving added to ShareDialog."
 }

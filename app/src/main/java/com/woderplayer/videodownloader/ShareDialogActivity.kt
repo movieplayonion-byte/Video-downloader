@@ -1,7 +1,6 @@
 package com.woderplayer.videodownloader
 
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -12,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ShareDialogActivity : AppCompatActivity() {
 
@@ -19,24 +19,7 @@ class ShareDialogActivity : AppCompatActivity() {
     private lateinit var downloadBtn: Button
     private lateinit var audioRadioBtn: RadioButton
     private var sharedUrl: String = ""
-
-    private val currentVersionCode: Long = 24L
-        get() = try {
-            val pInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
-            } else {
-                @Suppress("DEPRECATION")
-                packageManager.getPackageInfo(packageName, 0)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                pInfo.longVersionCode
-            } else {
-                @Suppress("DEPRECATION")
-                pInfo.versionCode.toLong()
-            }
-        } catch (e: Exception) {
-            24L
-        }
+    private val currentVersionCode: Long = 25L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,16 +54,35 @@ class ShareDialogActivity : AppCompatActivity() {
         downloadBtn.setOnClickListener {
             if (sharedUrl.isNotEmpty()) {
                 val isAudio = audioRadioBtn.isChecked
-                val extension = if (isAudio) "mp3" else "mp4"
-                val fileName = "download_${System.currentTimeMillis()}.$extension"
+                progressBar.visibility = View.VISIBLE
+                downloadBtn.isEnabled = false
 
-                DownloadService.startDownload(
-                    context = this,
-                    url = sharedUrl,
-                    fileName = fileName,
-                    isAudio = isAudio
-                )
-                finish()
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val result = VideoExtractor.resolveStreamUrl(sharedUrl, isAudio, "720")
+                    withContext(Dispatchers.Main) {
+                        progressBar.visibility = View.GONE
+                        downloadBtn.isEnabled = true
+
+                        if (result != null && (result.startsWith("http://") || result.startsWith("https://"))) {
+                            val ext = if (isAudio) "mp3" else "mp4"
+                            val fileName = "download_${System.currentTimeMillis()}.$ext"
+
+                            DownloadService.startDownload(
+                                context = this@ShareDialogActivity,
+                                url = result,
+                                fileName = fileName,
+                                isAudio = isAudio
+                            )
+                            finish()
+                        } else {
+                            Toast.makeText(
+                                this@ShareDialogActivity,
+                                "Error resolving link: ${result ?: "Unknown error"}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }
             } else {
                 Toast.makeText(this, "Invalid Link", Toast.LENGTH_SHORT).show()
                 finish()
