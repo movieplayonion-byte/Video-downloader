@@ -24,12 +24,18 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Build Signed Debug APK
+      - name: Build Signed APK & AAB
         run: |
-          gradle assembleDebug --no-configuration-cache --stacktrace
+          gradle assembleRelease bundleRelease --no-configuration-cache --stacktrace
 
-      - name: Upload APK
+      - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: app-release-apk
+          path: app/build/outputs/apk/release/*.apk
+
+      - name: Upload Signed AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-bundle
+          path: app/build/outputs/bundle/release/*.aab
