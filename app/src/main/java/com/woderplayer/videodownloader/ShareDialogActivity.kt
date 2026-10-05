@@ -35,7 +35,7 @@ class ShareDialogActivity : AppCompatActivity() {
                 pInfo.versionCode.toLong()
             }
         } catch (e: Exception) {
-            1L
+            24L
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,12 +71,15 @@ class ShareDialogActivity : AppCompatActivity() {
         downloadBtn.setOnClickListener {
             if (sharedUrl.isNotEmpty()) {
                 val isAudio = audioRadioBtn.isChecked
-                val intent = Intent(this, DownloadService::class.java).apply {
-                    putExtra("URL", sharedUrl)
-                    putExtra("IS_AUDIO", isAudio)
-                }
-                startService(intent)
-                Toast.makeText(this, "Download started...", Toast.LENGTH_SHORT).show()
+                val extension = if (isAudio) "mp3" else "mp4"
+                val fileName = "download_${System.currentTimeMillis()}.$extension"
+
+                DownloadService.startDownload(
+                    context = this,
+                    url = sharedUrl,
+                    fileName = fileName,
+                    isAudio = isAudio
+                )
                 finish()
             } else {
                 Toast.makeText(this, "Invalid Link", Toast.LENGTH_SHORT).show()
