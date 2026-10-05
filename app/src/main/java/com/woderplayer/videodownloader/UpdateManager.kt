@@ -33,13 +33,13 @@ object UpdateManager {
 
     suspend fun checkUpdateStatus(
         context: Context,
-        currentVersionCode: Long,
         onUpdateFound: (ReleaseInfo) -> Unit,
         onNoUpdate: () -> Unit
     ) {
+        val currentCode = BuildConfig.VERSION_CODE.toLong()
         val info = fetchRawVersionInfo()
         withContext(Dispatchers.Main) {
-            if (info != null && info.versionCode > currentVersionCode) {
+            if (info != null && info.versionCode > currentCode) {
                 onUpdateFound(info)
             } else {
                 onNoUpdate()
@@ -47,13 +47,24 @@ object UpdateManager {
         }
     }
 
+    // Overload for backward compatibility with old activity calls
+    suspend fun checkUpdateStatus(
+        context: Context,
+        unusedCode: Long,
+        onUpdateFound: (ReleaseInfo) -> Unit,
+        onNoUpdate: () -> Unit
+    ) {
+        checkUpdateStatus(context, onUpdateFound, onNoUpdate)
+    }
+
     private suspend fun fetchRawVersionInfo(): ReleaseInfo? = withContext(Dispatchers.IO) {
         try {
-            val url = URL("$BASE_URL?t=" + System.currentTimeMillis())
+            val url = URL("$BASE_URL?nocache=" + System.currentTimeMillis())
             val conn = (url.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 4000
-                readTimeout = 4000
+                connectTimeout = 8000
+                readTimeout = 8000
                 useCaches = false
+                setRequestProperty("Cache-Control", "no-cache")
             }
 
             if (conn.responseCode == 200) {
@@ -65,7 +76,7 @@ object UpdateManager {
                 val vCode = json.getLong("versionCode")
                 val vName = json.getString("versionName")
                 val apkUrl = json.getString("apkUrl")
-                val log = json.optString("changeLog", "Mandatory update.")
+                val log = json.optString("changeLog", "Mandatory update is available.")
 
                 return@withContext ReleaseInfo(vName, vCode, log, apkUrl)
             }
@@ -113,11 +124,11 @@ object UpdateManager {
 
                 CoroutineScope(Dispatchers.IO).launch {
                     downloadApkDirect(activity, info.apkUrl, "Update_v${info.versionName}.apk",
-                        onProgress = { percent, downloadedMB, totalMB ->
+                        onProgress = { percent, currentMB, totalMB ->
                             CoroutineScope(Dispatchers.Main).launch {
                                 pBar.isIndeterminate = false
                                 pBar.progress = percent
-                                statusTxt.text = "Downloading: $percent% ($downloadedMB MB / $totalMB MB)"
+                                statusTxt.text = "Downloading: $percent% ($currentMB MB / $totalMB MB)"
                             }
                         },
                         onSuccess = { file ->
