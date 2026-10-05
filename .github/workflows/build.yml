@@ -44,7 +44,7 @@ jobs:
           name: app-release-bundle
           path: app/build/outputs/bundle/release/*.aab
 
-      - name: Create Direct Public GitHub Release
+      - name: Force Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
@@ -52,6 +52,8 @@ jobs:
           body: "Direct public download links for APK and AAB Bundle."
           draft: false
           prerelease: false
+          make_latest: true
+          overwrite: true
           files: |
             app/build/outputs/apk/release/VideoDownloader.apk
             app/build/outputs/bundle/release/*.aab
