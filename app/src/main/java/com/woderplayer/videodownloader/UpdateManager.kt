@@ -1,22 +1,27 @@
 package com.woderplayer.videodownloader
 
 import android.app.Activity
-import android.app.DownloadManager
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
+import android.provider.Settings
+import android.view.LayoutInflater
+import android.view.View
+import android.widget.Button
+import android.widget.ProgressBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.File
+import java.io.FileOutputStream
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
@@ -44,14 +49,14 @@ object UpdateManager {
     private suspend fun fetchRawVersionInfo(): ReleaseInfo? = withContext(Dispatchers.IO) {
         try {
             val url = URL("$BASE_URL?t=" + System.currentTimeMillis())
-            val connection = (url.openConnection() as HttpURLConnection).apply {
+            val conn = (url.openConnection() as HttpURLConnection).apply {
                 connectTimeout = 4000
                 readTimeout = 4000
                 useCaches = false
             }
 
-            if (connection.responseCode == 200) {
-                val reader = BufferedReader(InputStreamReader(connection.inputStream))
+            if (conn.responseCode == 200) {
+                val reader = BufferedReader(InputStreamReader(conn.inputStream))
                 val content = reader.readText()
                 reader.close()
 
@@ -59,7 +64,7 @@ object UpdateManager {
                 val vCode = json.getLong("versionCode")
                 val vName = json.getString("versionName")
                 val apkUrl = json.getString("apkUrl")
-                val log = json.optString("changeLog", "Mandatory update is required.")
+                val log = json.optString("changeLog", "Mandatory security and engine update.")
 
                 return@withContext ReleaseInfo(vName, vCode, log, apkUrl)
             }
@@ -70,67 +75,93 @@ object UpdateManager {
     }
 
     fun showMandatoryDialog(activity: Activity, info: ReleaseInfo) {
-        val dialog = AlertDialog.Builder(activity)
-            .setTitle("Update Required (v${info.versionName})")
-            .setMessage(info.changeLog + "\n\nYou must update to continue using Video Downloader.")
-            .setCancelable(false)
-            .setPositiveButton("Update Now") { _, _ ->
-                downloadAndInstall(activity, info.apkUrl, "app_update_v${info.versionName}.apk")
-            }
-            .setNegativeButton("Exit") { _, _ ->
-                activity.finishAffinity()
-            }
-            .create()
+        val builder = AlertDialog.Builder(activity)
+        val view = LayoutInflater.from(activity).inflate(R.layout.dialog_update_lock, null)
+        builder.setView(view)
+        builder.setCancelable(false)
 
-        // Back button dabane par bhi dialog dismiss na ho
+        val dialog = builder.create()
         dialog.setCanceledOnTouchOutside(false)
-        dialog.setOnCancelListener {
+
+        val titleTxt = view.findViewById<TextView>(R.id.update_title)
+        val descTxt = view.findViewById<TextView>(R.id.update_desc)
+        val pBar = view.findViewById<ProgressBar>(R.id.update_progress)
+        val statusTxt = view.findViewById<TextView>(R.id.update_status)
+        val actionBtn = view.findViewById<Button>(R.id.update_action_btn)
+        val exitBtn = view.findViewById<Button>(R.id.update_exit_btn)
+
+        titleTxt.text = "Update Required (v${info.versionName})"
+        descTxt.text = info.changeLog
+
+        exitBtn.setOnClickListener {
             activity.finishAffinity()
         }
+
+        var downloadedApk: File? = null
+
+        actionBtn.setOnClickListener {
+            if (downloadedApk != null && downloadedApk!!.exists()) {
+                // Agar download ho chuka hai, toh sirf Install trigger hoga
+                checkPermissionAndInstall(activity, downloadedApk!)
+            } else {
+                // Download start karein in-app with visible live status
+                actionBtn.isEnabled = false
+                exitBtn.isEnabled = false
+                pBar.visibility = View.VISIBLE
+                statusTxt.visibility = View.VISIBLE
+                statusTxt.text = "Connecting to server..."
+
+                CoroutineScope(Dispatchers.IO).launch {
+                    downloadApkDirect(activity, info.apkUrl, "Update_v${info.versionName}.apk",
+                        onProgress = { percent ->
+                            CoroutineScope(Dispatchers.Main).launch {
+                                pBar.isIndeterminate = false
+                                pBar.progress = percent
+                                statusTxt.text = "Downloading: $percent%"
+                            }
+                        },
+                        onSuccess = { file ->
+                            downloadedApk = file
+                            CoroutineScope(Dispatchers.Main).launch {
+                                pBar.visibility = View.GONE
+                                statusTxt.text = "Download Complete!"
+                                actionBtn.isEnabled = true
+                                actionBtn.text = "Install Update Now"
+                                checkPermissionAndInstall(activity, file)
+                            }
+                        },
+                        onError = { errMsg ->
+                            CoroutineScope(Dispatchers.Main).launch {
+                                pBar.visibility = View.GONE
+                                statusTxt.text = "Download Failed: $errMsg"
+                                actionBtn.isEnabled = true
+                                exitBtn.isEnabled = true
+                                actionBtn.text = "Retry Download"
+                            }
+                        }
+                    )
+                }
+            }
+        }
+
         dialog.show()
     }
 
-    private fun downloadAndInstall(context: Context, downloadUrl: String, fileName: String) {
-        try {
-            val destination = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName)
-            if (destination.exists()) destination.delete()
-
-            val request = DownloadManager.Request(Uri.parse(downloadUrl)).apply {
-                setTitle("Downloading App Update...")
-                setDescription("Please wait while update finishes.")
-                setDestinationUri(Uri.fromFile(destination))
-                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-            }
-
-            val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            val downloadId = manager.enqueue(request)
-            Toast.makeText(context, "Update downloading in background...", Toast.LENGTH_SHORT).show()
-
-            val receiver = object : BroadcastReceiver() {
-                override fun onReceive(ctxt: Context, intent: Intent) {
-                    val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
-                    if (id == downloadId) {
-                        installApk(ctxt, destination)
-                        try {
-                            ctxt.unregisterReceiver(this)
-                        } catch (e: Exception) {}
-                    }
+    private fun checkPermissionAndInstall(activity: Activity, apkFile: File) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!activity.packageManager.canRequestPackageInstalls()) {
+                Toast.makeText(activity, "Please allow 'Install unknown apps' permission to update", Toast.LENGTH_LONG).show()
+                val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    data = Uri.parse("package:${activity.packageName}")
                 }
+                activity.startActivity(intent)
+                return
             }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(receiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), Context.RECEIVER_EXPORTED)
-            } else {
-                context.registerReceiver(receiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
-            }
-        } catch (e: Exception) {
-            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
         }
+        triggerSystemInstall(activity, apkFile)
     }
 
-    private fun installApk(context: Context, apkFile: File) {
-        if (!apkFile.exists()) return
-
+    private fun triggerSystemInstall(context: Context, apkFile: File) {
         val apkUri = FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",
@@ -143,6 +174,71 @@ object UpdateManager {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)
+    }
+
+    private fun downloadApkDirect(
+        context: Context,
+        urlString: String,
+        fileName: String,
+        onProgress: (Int) -> Unit,
+        onSuccess: (File) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        try {
+            var currentUrl = urlString
+            var connection: HttpURLConnection
+            var redirects = 0
+
+            // Follow 302/301 redirects (GitHub releases redirect to AWS S3)
+            while (true) {
+                val u = URL(currentUrl)
+                connection = u.openConnection() as HttpURLConnection
+                connection.instanceFollowRedirects = false
+                connection.connectTimeout = 10000
+                connection.readTimeout = 15000
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+                connection.connect()
+
+                val status = connection.responseCode
+                if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM || status == 307 || status == 308) {
+                    currentUrl = connection.getHeaderField("Location")
+                    redirects++
+                    if (redirects > 5) throw Exception("Too many redirects")
+                    continue
+                }
+                break
+            }
+
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                throw Exception("Server returned code ${connection.responseCode}")
+            }
+
+            val fileLength = connection.contentLength
+            val file = File(context.getExternalFilesDir(null), fileName)
+            if (file.exists()) file.delete()
+
+            val input = connection.inputStream
+            val output = FileOutputStream(file)
+            val buffer = ByteArray(4096)
+            var total: Long = 0
+            var count: Int
+
+            while (input.read(buffer).also { count = it } != -1) {
+                total += count.toLong()
+                if (fileLength > 0) {
+                    val percent = (total * 100 / fileLength).toInt()
+                    onProgress(percent)
+                }
+                output.write(buffer, 0, count)
+            }
+
+            output.flush()
+            output.close()
+            input.close()
+            onSuccess(file)
+        } catch (e: Exception) {
+            onError(e.message ?: "Unknown error")
+        }
     }
 
     data class ReleaseInfo(
