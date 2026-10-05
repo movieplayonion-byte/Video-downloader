@@ -5,6 +5,9 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,14 +31,22 @@ jobs:
         run: |
           gradle assembleRelease bundleRelease --no-configuration-cache --stacktrace
 
-      - name: Upload Signed APK
+      - name: Upload Signed APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release-apk
           path: app/build/outputs/apk/release/*.apk
 
-      - name: Upload Signed AAB
-        uses: actions/upload-artifact@v4
+      - name: Create Direct Public GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: app-release-bundle
-          path: app/build/outputs/bundle/release/*.aab
+          tag_name: latest
+          name: "Video Downloader Latest Release"
+          body: "Direct public download link for Video Downloader APK."
+          draft: false
+          prerelease: false
+          files: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
