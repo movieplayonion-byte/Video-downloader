@@ -1,6 +1,6 @@
 {
-  "versionCode": 27,
-  "versionName": "3.0.0",
+  "versionCode": 28,
+  "versionName": "3.0.1",
   "apkUrl": "https://github.com/movieplayonion-byte/Video-downloader/releases/latest/download/VideoDownloader.apk",
-  "changeLog": "Update v3.0.0: Added fallback stream extraction for Instagram public reels."
+  "changeLog": "Update v3.0.1: Added Desktop browser headers for Instagram extraction."
 }
