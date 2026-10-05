@@ -19,14 +19,11 @@ import java.util.regex.Pattern
 class ShareDialogActivity : AppCompatActivity() {
 
     private var targetUrl: String = ""
+    private val CURRENT_VERSION_CODE = 16L // Current App Version
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_share_dialog)
-
-        if (!Python.isStarted()) {
-            Python.start(AndroidPlatform(this))
-        }
 
         val formatGroup = findViewById<RadioGroup>(R.id.dialog_format_group)
         val downloadBtn = findViewById<Button>(R.id.dialog_download_btn)
@@ -35,7 +32,6 @@ class ShareDialogActivity : AppCompatActivity() {
 
         cancelBtn.setOnClickListener { finish() }
 
-        // Extract URL from shared text
         if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
             val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
             targetUrl = extractUrl(sharedText)
@@ -45,6 +41,33 @@ class ShareDialogActivity : AppCompatActivity() {
             Toast.makeText(this, "No valid video URL detected", Toast.LENGTH_SHORT).show()
             finish()
             return
+        }
+
+        // 1. YouTube se Share karne par pehle Version check hoga
+        progressBar.visibility = View.VISIBLE
+        downloadBtn.isEnabled = false
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            UpdateManager.checkUpdateStatus(
+                context = this@ShareDialogActivity,
+                currentVersionCode = CURRENT_VERSION_CODE,
+                onUpdateFound = { updateInfo ->
+                    progressBar.visibility = View.GONE
+                    // Mandatory update dialog: Download allow nahi hoga jab tak update na ho!
+                    UpdateManager.showMandatoryDialog(this@ShareDialogActivity, updateInfo) {
+                        finish()
+                    }
+                },
+                onNoUpdate = {
+                    // Agar app up-to-date hai, normal download ready!
+                    progressBar.visibility = View.GONE
+                    downloadBtn.isEnabled = true
+                }
+            )
+        }
+
+        if (!Python.isStarted()) {
+            Python.start(AndroidPlatform(this))
         }
 
         downloadBtn.setOnClickListener {
@@ -61,7 +84,7 @@ class ShareDialogActivity : AppCompatActivity() {
                     if (streamUrl.startsWith("http://") || streamUrl.startsWith("https://")) {
                         val fileName = if (isAudio) "audio_${System.currentTimeMillis()}.m4a" else "video_${System.currentTimeMillis()}.mp4"
                         DownloadService.startDownload(this@ShareDialogActivity, streamUrl, fileName, isAudio)
-                        finish() // YouTube par wapas laut jaye bina app open kiye!
+                        finish()
                     } else {
                         downloadBtn.isEnabled = true
                         cancelBtn.isEnabled = true

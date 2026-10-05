@@ -29,15 +29,29 @@ class MainActivity : AppCompatActivity() {
     private lateinit var downloadBtn: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var formatGroup: RadioGroup
+    private val CURRENT_VERSION_CODE = 16L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Notification permission Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
             }
+        }
+
+        // Background Raw Auto-Update Check
+        lifecycleScope.launch(Dispatchers.IO) {
+            UpdateManager.checkUpdateStatus(
+                context = this@MainActivity,
+                currentVersionCode = CURRENT_VERSION_CODE,
+                onUpdateFound = { info ->
+                    UpdateManager.showMandatoryDialog(this@MainActivity, info)
+                },
+                onNoUpdate = {}
+            )
         }
 
         if (!Python.isStarted()) {
