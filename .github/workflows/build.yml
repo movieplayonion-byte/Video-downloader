@@ -37,12 +37,18 @@ jobs:
           name: app-release-apk
           path: app/build/outputs/apk/release/*.apk
 
+      - name: Upload Signed AAB Bundle Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-bundle
+          path: app/build/outputs/bundle/release/*.aab
+
       - name: Create Direct Public GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: "Video Downloader Latest Release"
-          body: "Direct public download link for Video Downloader APK."
+          body: "Direct public download links for APK and AAB Bundle."
           draft: false
           prerelease: false
           files: |
