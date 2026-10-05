@@ -1,6 +1,6 @@
 {
-  "versionCode": 22,
-  "versionName": "2.9.5",
+  "versionCode": 23,
+  "versionName": "2.9.6",
   "apkUrl": "https://github.com/movieplayonion-byte/Video-downloader/releases/latest/download/VideoDownloader.apk",
-  "changeLog": "Update v2.9.5: Synced version 22."
+  "changeLog": "Update v2.9.6: Share dialog transparent background fixed with card style."
 }
