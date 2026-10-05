@@ -22,6 +22,20 @@
             </intent-filter>
         </activity>
 
+        <!-- YouTube Share Popup Activity (Transparent Dialog) -->
+        <activity
+            android:name=".ShareDialogActivity"
+            android:exported="true"
+            android:theme="@style/Theme.TransparentDialog"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".PlayerActivity"
             android:exported="false"
