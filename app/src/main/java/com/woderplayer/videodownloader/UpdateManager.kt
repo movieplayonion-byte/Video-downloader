@@ -33,27 +33,18 @@ object UpdateManager {
 
     suspend fun checkUpdateStatus(
         context: Context,
+        currentVersionCode: Long,
         onUpdateFound: (ReleaseInfo) -> Unit,
         onNoUpdate: () -> Unit
     ) {
-        val currentCode: Long = BuildConfig.VERSION_CODE.toLong()
         val info = fetchRawVersionInfo()
         withContext(Dispatchers.Main) {
-            if (info != null && (info.versionCode.compareTo(currentCode) > 0)) {
+            if (info != null && (info.versionCode.compareTo(currentVersionCode) > 0)) {
                 onUpdateFound(info)
             } else {
                 onNoUpdate()
             }
         }
-    }
-
-    suspend fun checkUpdateStatus(
-        context: Context,
-        unusedCode: Long,
-        onUpdateFound: (ReleaseInfo) -> Unit,
-        onNoUpdate: () -> Unit
-    ) {
-        checkUpdateStatus(context, onUpdateFound, onNoUpdate)
     }
 
     private suspend fun fetchRawVersionInfo(): ReleaseInfo? = withContext(Dispatchers.IO) {

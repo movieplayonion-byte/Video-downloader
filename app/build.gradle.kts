@@ -5,6 +5,9 @@ plugins {
 }
 
 android {
+    buildFeatures {
+        buildConfig = true
+    }
     namespace = "com.woderplayer.videodownloader"
     compileSdk = 35
 
