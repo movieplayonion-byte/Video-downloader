@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="primary">#00E676</color>
+    <color name="background">#151A1E</color>
     <color name="ic_cyber_bg">#151A1E</color>
     <color name="ic_cyber_card">#242B30</color>
     <color name="ic_cyber_green">#00E676</color>
