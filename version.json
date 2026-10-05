@@ -1,6 +1,6 @@
 {
   "versionCode": 16,
   "versionName": "2.8.0",
-  "apkUrl": "https://github.com/movieplayonion-byte/Video-downloader/releases/latest/download/app-release.apk",
+  "apkUrl": "https://github.com/movieplayonion-byte/Video-downloader/releases/latest/download/VideoDownloader.apk",
   "changeLog": "Mandatory update with faster extraction engine and seamless YouTube popup."
 }

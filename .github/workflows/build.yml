@@ -30,12 +30,13 @@ jobs:
       - name: Build Signed APK & AAB
         run: |
           gradle assembleRelease bundleRelease --no-configuration-cache --stacktrace
+          cp app/build/outputs/apk/release/*.apk app/build/outputs/apk/release/VideoDownloader.apk
 
       - name: Upload Signed APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release-apk
-          path: app/build/outputs/apk/release/*.apk
+          path: app/build/outputs/apk/release/VideoDownloader.apk
 
       - name: Upload Signed AAB Bundle Artifact
         uses: actions/upload-artifact@v4
@@ -52,7 +53,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/release/VideoDownloader.apk
             app/build/outputs/bundle/release/*.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
