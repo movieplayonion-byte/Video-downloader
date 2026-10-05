@@ -19,7 +19,7 @@ import java.util.regex.Pattern
 class ShareDialogActivity : AppCompatActivity() {
 
     private var targetUrl: String = ""
-    private val CURRENT_VERSION_CODE = 17L
+    private val CURRENT_VERSION_CODE = 18L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

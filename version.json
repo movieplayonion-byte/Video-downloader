@@ -1,6 +1,6 @@
 {
-  "versionCode": 17,
-  "versionName": "2.9.0",
+  "versionCode": 18,
+  "versionName": "2.9.1",
   "apkUrl": "https://github.com/movieplayonion-byte/Video-downloader/releases/latest/download/VideoDownloader.apk",
-  "changeLog": "New Release v2.9.0: In-app live updater and Cyber Minimalist theme."
+  "changeLog": "Small update v2.9.1: Bug fixes, smoother in-app updater and stability improvements."
 }
