@@ -1,85 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="320dp"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    app:cardCornerRadius="16dp"
-    app:cardElevation="10dp"
-    app:cardBackgroundColor="#212121">
+    android:orientation="vertical"
+    android:padding="20dp">
 
-    <LinearLayout
+    <ProgressBar
+        android:id="@+id/share_progress"
+        style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp"
-        android:gravity="center_horizontal">
+        android:indeterminate="true"
+        android:visibility="gone" />
 
-        <TextView
+    <RadioGroup
+        android:id="@+id/share_format_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="12dp">
+
+        <RadioButton
+            android:id="@+id/share_video_radio"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Quick Download"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="16dp" />
+            android:text="Video (MP4)"
+            android:checked="true" />
 
-        <RadioGroup
-            android:id="@+id/dialog_format_group"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:layout_marginBottom="16dp">
-
-            <RadioButton
-                android:id="@+id/dialog_radio_video"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Video (MP4)"
-                android:textColor="#FFFFFF"
-                android:checked="true" />
-
-            <RadioButton
-                android:id="@+id/dialog_radio_audio"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Audio (MP3)"
-                android:textColor="#FFFFFF"
-                android:layout_marginStart="16dp" />
-        </RadioGroup>
-
-        <ProgressBar
-            android:id="@+id/dialog_progress"
+        <RadioButton
+            android:id="@+id/share_audio_radio"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:visibility="gone"
-            android:layout_marginBottom="12dp" />
+            android:layout_marginStart="16dp"
+            android:text="Audio (MP3)" />
+    </RadioGroup>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
+    <Button
+        android:id="@+id/share_download_btn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Download" />
 
-            <Button
-                android:id="@+id/dialog_cancel_btn"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Cancel"
-                android:backgroundTint="#424242"
-                android:textColor="#FFFFFF"
-                android:layout_marginEnd="8dp" />
-
-            <Button
-                android:id="@+id/dialog_download_btn"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Download"
-                android:backgroundTint="#FF0000"
-                android:textColor="#FFFFFF"
-                android:layout_marginStart="8dp" />
-        </LinearLayout>
-
-    </LinearLayout>
-</androidx.cardview.widget.CardView>
+</LinearLayout>

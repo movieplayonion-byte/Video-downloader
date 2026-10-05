@@ -1,56 +1,62 @@
 package com.woderplayer.videodownloader
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.ProgressBar
-import android.widget.RadioGroup
+import android.widget.RadioButton
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPlatform
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.util.regex.Pattern
 
 class ShareDialogActivity : AppCompatActivity() {
 
-    private var targetUrl: String = ""
-    private val CURRENT_VERSION_CODE = 18L
+    private lateinit var progressBar: ProgressBar
+    private lateinit var downloadBtn: Button
+    private lateinit var audioRadioBtn: RadioButton
+    private var sharedUrl: String = ""
+
+    private val currentVersionCode: Long
+        get() = try {
+            val pInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, 0)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                pInfo.longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                pInfo.versionCode.toLong()
+            }
+        } catch (e: Exception) {
+            1L
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_share_dialog)
 
-        val formatGroup = findViewById<RadioGroup>(R.id.dialog_format_group)
-        val downloadBtn = findViewById<Button>(R.id.dialog_download_btn)
-        val cancelBtn = findViewById<Button>(R.id.dialog_cancel_btn)
-        val progressBar = findViewById<ProgressBar>(R.id.dialog_progress)
-
-        cancelBtn.setOnClickListener { finish() }
+        progressBar = findViewById(R.id.share_progress)
+        downloadBtn = findViewById(R.id.share_download_btn)
+        audioRadioBtn = findViewById(R.id.share_audio_radio)
 
         if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
-            val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
-            targetUrl = extractUrl(sharedText)
+            sharedUrl = intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
         }
 
-        if (targetUrl.isEmpty()) {
-            Toast.makeText(this, "No valid video URL detected", Toast.LENGTH_SHORT).show()
-            finish()
-            return
-        }
-
-        // Mandatory version check
         progressBar.visibility = View.VISIBLE
         downloadBtn.isEnabled = false
 
         lifecycleScope.launch(Dispatchers.IO) {
             UpdateManager.checkUpdateStatus(
                 context = this@ShareDialogActivity,
-                currentVersionCode = CURRENT_VERSION_CODE,
+                currentVersionCode = currentVersionCode,
                 onUpdateFound = { updateInfo ->
                     progressBar.visibility = View.GONE
                     UpdateManager.showMandatoryDialog(this@ShareDialogActivity, updateInfo)
@@ -62,38 +68,20 @@ class ShareDialogActivity : AppCompatActivity() {
             )
         }
 
-        if (!Python.isStarted()) {
-            Python.start(AndroidPlatform(this))
-        }
-
         downloadBtn.setOnClickListener {
-            val isAudio = formatGroup.checkedRadioButtonId == R.id.dialog_radio_audio
-            progressBar.visibility = View.VISIBLE
-            downloadBtn.isEnabled = false
-            cancelBtn.isEnabled = false
-
-            lifecycleScope.launch(Dispatchers.IO) {
-                val streamUrl = VideoExtractor.resolveStreamUrl(targetUrl, isAudio, "720")
-
-                withContext(Dispatchers.Main) {
-                    progressBar.visibility = View.GONE
-                    if (streamUrl.startsWith("http://") || streamUrl.startsWith("https://")) {
-                        val fileName = if (isAudio) "audio_${System.currentTimeMillis()}.m4a" else "video_${System.currentTimeMillis()}.mp4"
-                        DownloadService.startDownload(this@ShareDialogActivity, streamUrl, fileName, isAudio)
-                        finish()
-                    } else {
-                        downloadBtn.isEnabled = true
-                        cancelBtn.isEnabled = true
-                        Toast.makeText(this@ShareDialogActivity, streamUrl, Toast.LENGTH_LONG).show()
-                    }
+            if (sharedUrl.isNotEmpty()) {
+                val isAudio = audioRadioBtn.isChecked
+                val intent = Intent(this, DownloadService::class.java).apply {
+                    putExtra("URL", sharedUrl)
+                    putExtra("IS_AUDIO", isAudio)
                 }
+                startService(intent)
+                Toast.makeText(this, "Download started...", Toast.LENGTH_SHORT).show()
+                finish()
+            } else {
+                Toast.makeText(this, "Invalid Link", Toast.LENGTH_SHORT).show()
+                finish()
             }
         }
-    }
-
-    private fun extractUrl(text: String): String {
-        val pattern = Pattern.compile("https?://\\S+")
-        val matcher = pattern.matcher(text)
-        return if (matcher.find()) matcher.group() else text.trim()
     }
 }
