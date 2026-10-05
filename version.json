@@ -1,6 +1,6 @@
 {
-  "versionCode": 26,
-  "versionName": "2.9.9",
+  "versionCode": 27,
+  "versionName": "3.0.0",
   "apkUrl": "https://github.com/movieplayonion-byte/Video-downloader/releases/latest/download/VideoDownloader.apk",
-  "changeLog": "Update v2.9.9: Initialized Chaquopy PythonPlatform in ShareDialog."
+  "changeLog": "Update v3.0.0: Added fallback stream extraction for Instagram public reels."
 }

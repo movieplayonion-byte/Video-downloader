@@ -1,5 +1,33 @@
 import yt_dlp
 import re
+import urllib.request
+import json
+
+def get_instagram_fallback(url):
+    try:
+        clean_url = re.sub(r'\?.*$', '', url).rstrip('/') + '/'
+        req = urllib.request.Request(
+            clean_url,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9'
+            }
+        )
+        html = urllib.request.urlopen(req, timeout=10).read().decode('utf-8', errors='ignore')
+        
+        # 1. OpenGraph video meta tag
+        og_match = re.search(r'<meta\s+property=["\']og:video(?::secure_url)?["\']\s+content=["\']([^"\']+)["\']', html)
+        if og_match:
+            return og_match.group(1).replace('&amp;', '&')
+            
+        # 2. JSON-LD / Page state video_url
+        video_match = re.search(r'["\']video_url["\']\s*:\s*["\']([^"\']+)["\']', html)
+        if video_match:
+            raw_url = video_match.group(1).encode().decode('unicode-escape')
+            return raw_url.replace('&amp;', '&')
+    except Exception:
+        pass
+    return None
 
 def get_stream(url, mode="video", quality="720"):
     try:
@@ -12,6 +40,9 @@ def get_stream(url, mode="video", quality="720"):
             url = "https://" + url
 
         url = re.sub(r'(\?|&)si=[^&]+', '', url)
+
+        # Agar Instagram link hai to clean URL bana kar pehle yt-dlp try karenge
+        is_instagram = "instagram.com" in url
 
         ydl_opts = {
             'quiet': True,
@@ -29,41 +60,50 @@ def get_stream(url, mode="video", quality="720"):
             }
         }
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            formats = info.get('formats', [])
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                formats = info.get('formats', [])
+        except Exception as e:
+            # Agar yt-dlp Instagram par empty response de to HTML scraper chalega
+            if is_instagram:
+                direct_url = get_instagram_fallback(url)
+                if direct_url:
+                    return direct_url
+            raise e
 
-            if mode == "audio":
-                # Audio ke liye sabse reliable single audio stream jiska URL ho
-                audios = [
-                    f for f in formats 
-                    if f.get('url') and f.get('acodec') != 'none' and (f.get('vcodec') == 'none' or f.get('vcodec') is None)
-                ]
-                # Best bitrate audio
-                if audios:
-                    # Sort by audio bitrate
-                    audios.sort(key=lambda x: x.get('abr') or 0)
-                    return audios[-1]['url']
-                
-                # Agar standalone audio na mile to lowest video-audio stream
-                for f in formats:
-                    if f.get('url') and f.get('acodec') != 'none':
-                        return f['url']
-            else:
-                prog_mp4 = [
-                    f for f in formats 
-                    if f.get('url') and f.get('vcodec') != 'none' and f.get('acodec') != 'none' and f.get('ext') == 'mp4'
-                ]
-                for f in prog_mp4:
-                    if str(quality) in str(f.get('height', '')):
-                        return f['url']
-                if prog_mp4:
-                    return prog_mp4[-1]['url']
+        if is_instagram and not formats:
+            direct_url = get_instagram_fallback(url)
+            if direct_url:
+                return direct_url
+
+        if mode == "audio":
+            audios = [
+                f for f in formats
+                if f.get('url') and f.get('acodec') != 'none' and (f.get('vcodec') == 'none' or f.get('vcodec') is None)
+            ]
+            if audios:
+                audios.sort(key=lambda x: x.get('abr') or 0)
+                return audios[-1]['url']
+
+            for f in formats:
+                if f.get('url') and f.get('acodec') != 'none':
+                    return f['url']
+        else:
+            prog_mp4 = [
+                f for f in formats
+                if f.get('url') and f.get('vcodec') != 'none' and f.get('acodec') != 'none' and f.get('ext') == 'mp4'
+            ]
+            for f in prog_mp4:
+                if str(quality) in str(f.get('height', '')):
+                    return f['url']
+            if prog_mp4:
+                return prog_mp4[-1]['url']
 
             for f in formats:
                 if f.get('url'):
                     return f['url']
 
-            return "ERR_NO_STREAM: Stream format not available"
+        return "ERR_NO_STREAM: Stream format not available"
     except Exception as e:
         return f"ERR_PY: {str(e)}"
