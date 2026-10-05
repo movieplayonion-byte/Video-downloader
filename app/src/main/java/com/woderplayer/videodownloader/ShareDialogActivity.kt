@@ -19,7 +19,7 @@ import java.util.regex.Pattern
 class ShareDialogActivity : AppCompatActivity() {
 
     private var targetUrl: String = ""
-    private val CURRENT_VERSION_CODE = 16L // Current App Version
+    private val CURRENT_VERSION_CODE = 16L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,7 +43,7 @@ class ShareDialogActivity : AppCompatActivity() {
             return
         }
 
-        // 1. YouTube se Share karne par pehle Version check hoga
+        // Mandatory version check
         progressBar.visibility = View.VISIBLE
         downloadBtn.isEnabled = false
 
@@ -53,13 +53,9 @@ class ShareDialogActivity : AppCompatActivity() {
                 currentVersionCode = CURRENT_VERSION_CODE,
                 onUpdateFound = { updateInfo ->
                     progressBar.visibility = View.GONE
-                    // Mandatory update dialog: Download allow nahi hoga jab tak update na ho!
-                    UpdateManager.showMandatoryDialog(this@ShareDialogActivity, updateInfo) {
-                        finish()
-                    }
+                    UpdateManager.showMandatoryDialog(this@ShareDialogActivity, updateInfo)
                 },
                 onNoUpdate = {
-                    // Agar app up-to-date hai, normal download ready!
                     progressBar.visibility = View.GONE
                     downloadBtn.isEnabled = true
                 }
