@@ -2,31 +2,53 @@ import yt_dlp
 import re
 import urllib.request
 import json
+import ssl
 
-def get_instagram_fallback(url):
+def fetch_instagram_desktop(url):
     try:
+        # URL se sabhi query tracking parameters saaf karna (?utm_source etc.)
         clean_url = re.sub(r'\?.*$', '', url).rstrip('/') + '/'
-        req = urllib.request.Request(
-            clean_url,
-            headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                'Accept-Language': 'en-US,en;q=0.9'
-            }
-        )
-        html = urllib.request.urlopen(req, timeout=10).read().decode('utf-8', errors='ignore')
         
-        # 1. OpenGraph video meta tag
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        # Desktop Chrome Browser Emulation Headers
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1'
+        }
+
+        req = urllib.request.Request(clean_url, headers=headers)
+        html = urllib.request.urlopen(req, context=ctx, timeout=12).read().decode('utf-8', errors='ignore')
+
+        # 1. Desktop HTML OpenGraph Video Tag
         og_match = re.search(r'<meta\s+property=["\']og:video(?::secure_url)?["\']\s+content=["\']([^"\']+)["\']', html)
         if og_match:
             return og_match.group(1).replace('&amp;', '&')
-            
-        # 2. JSON-LD / Page state video_url
-        video_match = re.search(r'["\']video_url["\']\s*:\s*["\']([^"\']+)["\']', html)
-        if video_match:
-            raw_url = video_match.group(1).encode().decode('unicode-escape')
-            return raw_url.replace('&amp;', '&')
-    except Exception:
-        pass
+
+        # 2. Desktop JSON-LD / Video URL match
+        v_match = re.search(r'["\']video_url["\']\s*:\s*["\']([^"\']+)["\']', html)
+        if v_match:
+            raw = v_match.group(1).encode().decode('unicode-escape')
+            return raw.replace('&amp;', '&').replace('\\/', '/')
+
+        # 3. CDN MP4 direct link pattern
+        cdn_match = re.search(r'(https://[^"\'\s]+\.cdninstagram\.com/[^"\'\s]+\.mp4[^"\'\s]*)', html)
+        if cdn_match:
+            return cdn_match.group(1).replace('&amp;', '&').replace('\\/', '/')
+
+    except Exception as e:
+        return f"ERR_INSTA_DESKTOP: {str(e)}"
     return None
 
 def get_stream(url, mode="video", quality="720"):
@@ -41,9 +63,15 @@ def get_stream(url, mode="video", quality="720"):
 
         url = re.sub(r'(\?|&)si=[^&]+', '', url)
 
-        # Agar Instagram link hai to clean URL bana kar pehle yt-dlp try karenge
-        is_instagram = "instagram.com" in url
+        # Agar Instagram link hai to Desktop browser mode se direct fetch karo
+        if "instagram.com" in url:
+            stream_url = fetch_instagram_desktop(url)
+            if stream_url and stream_url.startswith("http"):
+                return stream_url
+            elif stream_url and stream_url.startswith("ERR_"):
+                return stream_url
 
+        # YouTube aur baaki sab platforms ke liye purana 100% working yt-dlp flow
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
@@ -60,22 +88,9 @@ def get_stream(url, mode="video", quality="720"):
             }
         }
 
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                formats = info.get('formats', [])
-        except Exception as e:
-            # Agar yt-dlp Instagram par empty response de to HTML scraper chalega
-            if is_instagram:
-                direct_url = get_instagram_fallback(url)
-                if direct_url:
-                    return direct_url
-            raise e
-
-        if is_instagram and not formats:
-            direct_url = get_instagram_fallback(url)
-            if direct_url:
-                return direct_url
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            formats = info.get('formats', [])
 
         if mode == "audio":
             audios = [
