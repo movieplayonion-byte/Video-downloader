@@ -1,12 +1,16 @@
 package com.woderplayer.videodownloader
 
+import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.RadioButton
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.chaquo.python.Python
@@ -61,6 +65,16 @@ class ShareDialogActivity : AppCompatActivity() {
 
         downloadBtn.setOnClickListener {
             if (sharedUrl.isNotEmpty()) {
+                // TikTok Link + VPN Check
+                if (isTikTokUrl(sharedUrl) && !isVpnActive()) {
+                    AlertDialog.Builder(this)
+                        .setTitle("VPN Required")
+                        .setMessage("Please connect a VPN first to download TikTok videos.")
+                        .setPositiveButton("OK", null)
+                        .show()
+                    return@setOnClickListener
+                }
+
                 val isAudio = audioRadioBtn.isChecked
                 progressBar.visibility = View.VISIBLE
                 downloadBtn.isEnabled = false
@@ -96,5 +110,17 @@ class ShareDialogActivity : AppCompatActivity() {
                 finish()
             }
         }
+    }
+
+    private fun isTikTokUrl(url: String): Boolean {
+        val lower = url.lowercase()
+        return lower.contains("tiktok.com") || lower.contains("vm.tiktok.com") || lower.contains("vt.tiktok.com")
+    }
+
+    private fun isVpnActive(): Boolean {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetwork = cm.activeNetwork ?: return false
+        val capabilities = cm.getNetworkCapabilities(activeNetwork) ?: return false
+        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
     }
 }
