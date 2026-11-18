@@ -1,5 +1,8 @@
 import yt_dlp
 import re
+import urllib.request
+import http.cookiejar
+import json
 
 IG_COOKIE = "Csrftoken=1k8TTqxOBC25HLYEroY7d2LaBIkCiFwU; datr=lf_GaqbhwWbSMYwkIH-9qV20; ig_did=8BD699EA-C578-4B00-B065-EB08D31611E5; wd=378x706; dpr=2.857142857142857; mid=asb_lQABAAFaXL8YC5w9S7kHbLFx; ds_user_id=23695702041; sessionid=23695702041%3APle5WrdBcbvdIu%3A5%3AAYnU15iwdj71axkDB0Ji4cYyJ3HlAIObVrIyOZweIA; rur=VLL%2C17841423701251962%2C1792636205%3A01ffc14b9872e55e87d60078c45152006858510bd442d82279b9396cb90ad24240943d86;"
 
@@ -31,6 +34,37 @@ def _extract_url(info, mode, quality):
                 return f['url']
     return None
 
+def _extract_tiktok_direct(url, mode):
+    cj = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+    opener.addheaders = [
+        ('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'),
+        ('Accept-Language', 'en-US,en;q=0.9'),
+    ]
+    resp = opener.open(url, timeout=15)
+    html = resp.read().decode('utf-8', errors='ignore')
+
+    m = re.search(r'<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>(.*?)</script>', html)
+    if not m:
+        return None
+
+    data = json.loads(m.group(1))
+    detail = data.get("__DEFAULT_SCOPE__", {}).get("webapp.video-detail", {})
+    item = detail.get("itemInfo", {}).get("itemStruct", {})
+
+    if mode == "audio":
+        media_url = item.get("music", {}).get("playUrl")
+    else:
+        media_url = item.get("video", {}).get("playAddr") or item.get("video", {}).get("downloadAddr")
+
+    if not media_url:
+        return None
+
+    cookie_str = "; ".join([f"{c.name}={c.value}" for c in cj])
+    if cookie_str:
+        return f"{media_url}|COOKIE={cookie_str}"
+    return media_url
+
 def get_stream(url, mode="video", quality="720"):
     try:
         url = str(url).strip()
@@ -46,6 +80,17 @@ def get_stream(url, mode="video", quality="720"):
         is_youtube = ("youtube.com" in url) or ("youtu.be" in url)
         is_instagram = "instagram.com" in url
         is_tiktok = ("tiktok.com" in url) or ("vm.tiktok.com" in url) or ("vt.tiktok.com" in url)
+
+        # TikTok Direct Extraction
+        if is_tiktok:
+            try:
+                tt_res = _extract_tiktok_direct(url, mode)
+                if tt_res:
+                    return tt_res
+            except Exception as e_tt:
+                err_str = str(e_tt).lower()
+                if "timed out" in err_str or "connection" in err_str or "reset" in err_str:
+                    return "ERR_VPN: TikTok blocked! Please connect a VPN and try again."
 
         ydl_opts = {
             'quiet': True,
@@ -65,7 +110,7 @@ def get_stream(url, mode="video", quality="720"):
                 'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
             }
 
-        # Attempt 1: Normal extraction (YouTube, TikTok & Instagram initial)
+        # Attempt 1: Normal extraction
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
@@ -77,15 +122,10 @@ def get_stream(url, mode="video", quality="720"):
                 if info and info.get('url'):
                     return info['url']
         except Exception as e_initial:
-            if is_tiktok:
-                err_str = str(e_initial).lower()
-                if "timed out" in err_str or "connection" in err_str or "reset" in err_str:
-                    return "ERR_VPN: TikTok blocked! Please connect a VPN and try again."
-                raise e_initial
             if not is_instagram:
                 raise e_initial
 
-        # Attempt 2: Instagram specific smart fallback (agar attempt 1 fail hua)
+        # Attempt 2: Instagram specific smart fallback
         if is_instagram:
             ydl_opts_ig = ydl_opts.copy()
             ydl_opts_ig['http_headers'] = {
@@ -103,3 +143,4 @@ def get_stream(url, mode="video", quality="720"):
 
     except Exception as e:
         return f"ERR_PY: {str(e)}"
+        
