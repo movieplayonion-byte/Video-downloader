@@ -1,8 +1,11 @@
 package com.woderplayer.videodownloader
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -68,10 +71,32 @@ class MainActivity : AppCompatActivity() {
         downloadBtn.setOnClickListener { processMedia(isDownload = true) }
     }
 
+    private fun isTikTokUrl(url: String): Boolean {
+        val lower = url.lowercase()
+        return lower.contains("tiktok.com") || lower.contains("vm.tiktok.com") || lower.contains("vt.tiktok.com")
+    }
+
+    private fun isVpnActive(): Boolean {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetwork = cm.activeNetwork ?: return false
+        val capabilities = cm.getNetworkCapabilities(activeNetwork) ?: return false
+        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+    }
+
     private fun processMedia(isDownload: Boolean) {
         val url = urlInput.text.toString().trim()
         if (url.isEmpty()) {
             Toast.makeText(this, "Please enter a URL", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // TikTok Link + VPN Check
+        if (isTikTokUrl(url) && !isVpnActive()) {
+            AlertDialog.Builder(this)
+                .setTitle("VPN Required")
+                .setMessage("TikTok is restricted in your region. Please connect a VPN and try again.")
+                .setPositiveButton("OK", null)
+                .show()
             return
         }
 
