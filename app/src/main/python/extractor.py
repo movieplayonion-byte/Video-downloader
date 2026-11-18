@@ -45,6 +45,7 @@ def get_stream(url, mode="video", quality="720"):
 
         is_youtube = ("youtube.com" in url) or ("youtu.be" in url)
         is_instagram = "instagram.com" in url
+        is_tiktok = ("tiktok.com" in url) or ("vm.tiktok.com" in url) or ("vt.tiktok.com" in url)
 
         ydl_opts = {
             'quiet': True,
@@ -63,19 +64,33 @@ def get_stream(url, mode="video", quality="720"):
             ydl_opts['http_headers'] = {
                 'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
             }
+        elif is_tiktok:
+            ydl_opts['http_headers'] = {
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36',
+                'Referer': 'https://www.tiktok.com/'
+            }
 
-        # Attempt 1: Normal extraction (pehle jaise)
+        # Attempt 1: Normal extraction
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
+                if info and 'entries' in info:
+                    info = info['entries'][0]
                 res = _extract_url(info, mode, quality)
                 if res:
                     return res
+                if info and info.get('url'):
+                    return info['url']
         except Exception as e_initial:
+            if is_tiktok:
+                err_str = str(e_initial).lower()
+                if "timed out" in err_str or "connection" in err_str or "reset" in err_str or "unable to download" in err_str:
+                    return "ERR_VPN: TikTok blocked! Please connect a VPN and try again."
+                raise e_initial
             if not is_instagram:
                 raise e_initial
 
-        # Attempt 2: Instagram specific smart fallback (agar attempt 1 fail hua)
+        # Attempt 2: Instagram specific smart fallback
         if is_instagram:
             ydl_opts_ig = ydl_opts.copy()
             ydl_opts_ig['http_headers'] = {
