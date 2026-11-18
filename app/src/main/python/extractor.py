@@ -64,13 +64,8 @@ def get_stream(url, mode="video", quality="720"):
             ydl_opts['http_headers'] = {
                 'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
             }
-        elif is_tiktok:
-            ydl_opts['http_headers'] = {
-                'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36',
-                'Referer': 'https://www.tiktok.com/'
-            }
 
-        # Attempt 1: Normal extraction
+        # Attempt 1: Normal extraction (YouTube, TikTok & Instagram initial)
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
@@ -84,13 +79,13 @@ def get_stream(url, mode="video", quality="720"):
         except Exception as e_initial:
             if is_tiktok:
                 err_str = str(e_initial).lower()
-                if "timed out" in err_str or "connection" in err_str or "reset" in err_str or "unable to download" in err_str:
+                if "timed out" in err_str or "connection" in err_str or "reset" in err_str:
                     return "ERR_VPN: TikTok blocked! Please connect a VPN and try again."
                 raise e_initial
             if not is_instagram:
                 raise e_initial
 
-        # Attempt 2: Instagram specific smart fallback
+        # Attempt 2: Instagram specific smart fallback (agar attempt 1 fail hua)
         if is_instagram:
             ydl_opts_ig = ydl_opts.copy()
             ydl_opts_ig['http_headers'] = {
