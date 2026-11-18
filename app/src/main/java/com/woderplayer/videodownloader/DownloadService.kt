@@ -9,9 +9,9 @@ import android.widget.Toast
 class DownloadService {
 
     companion object {
-        fun startDownload(context: Context, rawUrl: String, fileName: String, isAudio: Boolean) {
+        fun startDownload(context: Context, url: String, fileName: String, isAudio: Boolean) {
             try {
-                val parts = rawUrl.split("|COOKIE=", limit = 2)
+                val parts = url.split("|COOKIE=", limit = 2)
                 val cleanUrl = parts[0]
                 val cookie = if (parts.size > 1) parts[1] else null
 
